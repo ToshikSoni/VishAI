@@ -178,7 +178,7 @@ export class ChatInterface extends LitElement {
 
     // Clear the server-side memory as well
     fetch("https://vishapii.azurewebsites.net/clear-memory", {
-    // fetch("http://localhost:3001/clear-memory", {
+      // fetch("http://localhost:3001/clear-memory", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId: this.sessionId }),

@@ -25,9 +25,9 @@ const mentalHealthDocsPath = path.join(projectRoot, 'data/mental_health_resource
 
 // Crisis keywords to detect emergency situations
 const crisisKeywords = [
-  'suicide', 'kill myself', 'end my life', 'don\'t want to live',
-  'self-harm', 'hurt myself', 'harming myself', 'want to die',
-  'better off dead', 'no reason to live', 'dying', 'take my own life'
+    'suicide', 'kill myself', 'end my life', 'don\'t want to live',
+    'self-harm', 'hurt myself', 'harming myself', 'want to die',
+    'better off dead', 'no reason to live', 'dying', 'take my own life'
 ];
 
 const chatModel = new AzureChatOpenAI({
@@ -57,21 +57,21 @@ async function loadMentalHealthPDFs() {
             console.log(`Created directory: ${mentalHealthDocsPath}`);
             return {};
         }
-        
+
         const files = fs.readdirSync(mentalHealthDocsPath).filter(file => file.endsWith('.pdf'));
         console.log(`Found ${files.length} PDF files in mental health resources directory`);
-        
+
         for (const file of files) {
             const filePath = path.join(mentalHealthDocsPath, file);
             const dataBuffer = fs.readFileSync(filePath);
             const data = await pdfParse(dataBuffer);
-            
+
             mentalHealthTexts[file] = data.text;
             mentalHealthChunks[file] = [];
-            
+
             let currentChunk = "";
             const words = data.text.split(/\s+/);
-            
+
             for (const word of words) {
                 if ((currentChunk + " " + word).length <= CHUNK_SIZE) {
                     currentChunk += (currentChunk ? " " : "") + word;
@@ -82,7 +82,7 @@ async function loadMentalHealthPDFs() {
             }
             if (currentChunk) mentalHealthChunks[file].push(currentChunk);
         }
-        
+
         return mentalHealthTexts;
     } catch (error) {
         console.error('Error loading mental health PDFs:', error);
@@ -103,7 +103,7 @@ function retrieveRelevantContent(query) {
         .map(term => term.replace(/[.,?!;:()"']/g, ""));
 
     if (queryTerms.length === 0) return [];
-    
+
     // Flatten all chunks from all documents with their source
     const allChunksWithSources = [];
     Object.keys(mentalHealthChunks).forEach(fileName => {
@@ -111,7 +111,7 @@ function retrieveRelevantContent(query) {
             allChunksWithSources.push({ chunk, source: fileName });
         });
     });
-    
+
     const scoredChunks = allChunksWithSources.map(item => {
         const chunkLower = item.chunk.toLowerCase();
         let score = 0;
@@ -122,7 +122,7 @@ function retrieveRelevantContent(query) {
         }
         return { ...item, score };
     });
-    
+
     return scoredChunks
         .filter(item => item.score > 0)
         .sort((a, b) => b.score - a.score)
@@ -162,7 +162,7 @@ app.post("/chat", async (req, res) => {
 
     // Prepare system prompt with special handling for crisis situations
     let systemContent;
-    
+
     if (isCrisis) {
         systemContent = `You are a compassionate mental health support assistant speaking to someone in crisis. 
 This person may be having thoughts of suicide or self-harm based on their message. 
@@ -208,8 +208,8 @@ Always prioritize the person's wellbeing in your responses.`;
 
         await memory.saveContext({ input: userMessage }, { output: response.content });
 
-        res.json({ 
-            reply: response.content, 
+        res.json({
+            reply: response.content,
             sources: sources.map(s => s.content),
             isCrisis: isCrisis,
             resources: isCrisis ? [
