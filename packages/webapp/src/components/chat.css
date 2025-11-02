@@ -1766,3 +1766,211 @@ button:disabled {
         background-color: rgba(106, 191, 159, 0.1);
     }
 }
+/* History Sidebar */
+.history-sidebar {
+    position: fixed;
+    top: 0;
+    right: -350px;
+    width: 350px;
+    height: 100vh;
+    background: white;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.1);
+    transition: right 0.3s ease;
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+}
+
+.history-sidebar.open {
+    right: 0;
+}
+
+.history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #e0e0e0;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+}
+
+.history-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: white;
+    font-weight: 600;
+}
+
+.history-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+}
+
+.no-history {
+    text-align: center;
+    color: #999;
+    padding: 40px 20px;
+    font-size: 0.95rem;
+}
+
+.history-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 15px;
+}
+
+.delete-all-btn {
+    background: #f44336;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: 'Quicksand', sans-serif;
+    font-weight: 600;
+}
+
+.delete-all-btn:hover {
+    background: #d32f2f;
+    transform: translateY(-2px);
+}
+
+.history-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    margin-bottom: 10px;
+    background: #f8f9fa;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.history-item:hover {
+    background: #e3f2fd;
+    transform: translateX(-5px);
+}
+
+.history-item.active {
+    background: linear-gradient(135deg, rgba(112, 179, 161, 0.1) 0%, rgba(168, 218, 220, 0.1) 100%);
+    border-color: var(--primary-color);
+}
+
+.history-item-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0; /* Allow flexbox to shrink below content size */
+    overflow: hidden; /* Prevent overflow */
+}
+
+.history-title {
+    font-weight: 600;
+    color: #333;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%; /* Ensure it respects parent width */
+}
+
+.history-timestamp {
+    font-size: 0.8rem;
+    color: #666;
+    font-weight: 500;
+}
+
+.history-date {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.history-messages {
+    font-size: 0.75rem;
+    color: #999;
+}
+
+.history-actions-btns {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.history-edit-btn {
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 5px 8px;
+    transition: all 0.3s ease;
+    opacity: 0.5;
+}
+
+.history-edit-btn:hover {
+    opacity: 1;
+    transform: scale(1.2);
+}
+
+.history-delete-btn {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 5px 10px;
+    transition: all 0.3s ease;
+    opacity: 0.5;
+}
+
+.history-delete-btn:hover {
+    opacity: 1;
+    transform: scale(1.2);
+}
+
+.history-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}
+
+/* History Button */
+.history-btn {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 25px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(112, 179, 161, 0.3);
+    font-family: 'Quicksand', sans-serif;
+}
+
+.history-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(112, 179, 161, 0.4);
+}
+
+@media (max-width: 768px) {
+    .history-sidebar {
+        width: 90%;
+        right: -90%;
+    }
+}

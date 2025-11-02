@@ -1,2 +1,0 @@
-2025.9.1.1
--y --no-dot-deployment -r "C:\local\Temp\zipdeploy\extracted" -o "C:\home\site\deployments\tools" --node --sitePath "C:\local\Temp\zipdeploy\extracted"

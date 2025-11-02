@@ -364,8 +364,11 @@ app.post("/chat", async (req, res) => {
     if (userInfo.previousTherapy) {
       userContext += `- Therapy Experience: ${userInfo.previousTherapy}\n`;
     }
+    if (userInfo.preferredRole) {
+      userContext += `- Preferred Interaction Style: ${userInfo.preferredRole}\n`;
+    }
     if (userInfo.aboutMe) userContext += `- About: ${userInfo.aboutMe}\n`;
-    userContext += '\nUse this information naturally and adapt your responses to their preferences. Be especially mindful of their emotional state and communication style. Use their preferred pronouns consistently.\n';
+    userContext += '\nUse this information naturally and adapt your responses to their preferences. Be especially mindful of their emotional state and communication style. Interact with the user in the manner they prefer (as indicated by their preferred interaction style). Use their preferred pronouns consistently.\n';
   }
 
   // Prepare system prompt with special handling for crisis situations
@@ -616,8 +619,11 @@ app.post("/chat-audio", async (req, res) => {
     if (userInfo.previousTherapy) {
       userContext += `- Therapy Experience: ${userInfo.previousTherapy}\n`;
     }
+    if (userInfo.preferredRole) {
+      userContext += `- Preferred Interaction Style: ${userInfo.preferredRole}\n`;
+    }
     if (userInfo.aboutMe) userContext += `- About: ${userInfo.aboutMe}\n`;
-    userContext += '\nUse this information naturally and adapt your responses to their preferences. Be especially mindful of their emotional state and communication style. Use their preferred pronouns consistently.\n';
+    userContext += '\nUse this information naturally and adapt your responses to their preferences. Be especially mindful of their emotional state and communication style. Interact with the user in the manner they prefer (as indicated by their preferred interaction style). Use their preferred pronouns consistently.\n';
   }
 
   // Prepare system prompt

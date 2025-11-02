@@ -29,6 +29,9 @@ export class ChatInterface extends LitElement {
       activeTab: { type: String },
       userDocuments: { type: Array },
       isUploadingDoc: { type: Boolean },
+      historySidebarOpen: { type: Boolean },
+      chatSessions: { type: Array },
+      currentChatId: { type: String },
     };
   }
 
@@ -52,10 +55,13 @@ export class ChatInterface extends LitElement {
     this.currentAudio = null;
     this.bargeInTimer = null;
     this.sidebarOpen = false;
-    this.activeTab = 'personal'; // 'personal' or 'documents'
+    this.activeTab = "personal"; // 'personal' or 'documents'
     this.userDocuments = this._loadUserDocuments();
     this.isUploadingDoc = false;
     this.userInfo = this._loadUserInfo();
+    this.historySidebarOpen = false;
+    this.chatSessions = this._loadChatSessions();
+    this.currentChatId = this._getCurrentChatId();
   }
 
   // Create a unique session ID for this conversation
@@ -114,6 +120,7 @@ export class ChatInterface extends LitElement {
     // Save chat history to localStorage whenever messages change
     if (changedProps.has("messages")) {
       saveMessages(this.messages);
+      this._saveCurrentChat(); // Also save to chat sessions
 
       // Scroll to the bottom of the chat
       const chatMessages = this.querySelector(".chat-messages");
@@ -129,7 +136,11 @@ export class ChatInterface extends LitElement {
         <!-- Sidebar -->
         <div class="sidebar ${this.sidebarOpen ? "open" : ""}">
           <div class="sidebar-header">
-            <h3>${this.activeTab === 'personal' ? 'Personal Information' : 'My Documents'}</h3>
+            <h3>
+              ${this.activeTab === "personal"
+                ? "Personal Information"
+                : "My Documents"}
+            </h3>
             <button
               class="sidebar-close-btn"
               @click=${this._toggleSidebar}
@@ -141,22 +152,24 @@ export class ChatInterface extends LitElement {
 
           <!-- Sidebar Tabs -->
           <div class="sidebar-tabs">
-            <button 
-              class="tab-btn ${this.activeTab === 'personal' ? 'active' : ''}"
-              @click=${() => this._switchTab('personal')}
+            <button
+              class="tab-btn ${this.activeTab === "personal" ? "active" : ""}"
+              @click=${() => this._switchTab("personal")}
             >
               👤 Personal Info
             </button>
-            <button 
-              class="tab-btn ${this.activeTab === 'documents' ? 'active' : ''}"
-              @click=${() => this._switchTab('documents')}
+            <button
+              class="tab-btn ${this.activeTab === "documents" ? "active" : ""}"
+              @click=${() => this._switchTab("documents")}
             >
               📄 Documents
             </button>
           </div>
 
           <div class="sidebar-content">
-            ${this.activeTab === 'personal' ? this._renderPersonalInfoTab() : this._renderDocumentsTab()}
+            ${this.activeTab === "personal"
+              ? this._renderPersonalInfoTab()
+              : this._renderDocumentsTab()}
           </div>
         </div>
 
@@ -177,7 +190,7 @@ export class ChatInterface extends LitElement {
             >
               <span class="hamburger-icon">☰</span>
             </button>
-            <h1 class="app-title">Vish AI</h1>
+            <h1 class="app-title">Vish AI 💚</h1>
           </div>
           <div class="nav-right">
             <label class="rag-toggle">
@@ -189,7 +202,10 @@ export class ChatInterface extends LitElement {
               <span class="toggle-label">Use Supportive Resources</span>
             </label>
             <button class="clear-chat-btn" @click=${this._clearChat}>
-              Start New Chat
+              🆕 Start New Chat
+            </button>
+            <button class="history-btn" @click=${this._toggleHistorySidebar}>
+              📜 History
             </button>
           </div>
         </div>
@@ -386,6 +402,89 @@ export class ChatInterface extends LitElement {
             ? html`<p class="speech-warning">${this.speechError}</p>`
             : ""}
         </div>
+
+        <!-- History Sidebar -->
+        <div class="history-sidebar ${this.historySidebarOpen ? "open" : ""}">
+          <div class="history-header">
+            <h3>💬 Chat History</h3>
+            <button
+              class="sidebar-close-btn"
+              @click=${this._toggleHistorySidebar}
+              aria-label="Close History"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div class="history-content">
+            ${this.chatSessions.length === 0
+              ? html`
+                  <p class="no-history">
+                    No chat history yet. Start a conversation!
+                  </p>
+                `
+              : html`
+                  <div class="history-actions">
+                    <button
+                      class="delete-all-btn"
+                      @click=${this._deleteAllChats}
+                    >
+                      🗑️ Delete All
+                    </button>
+                  </div>
+                  <ul class="history-list">
+                    ${this.chatSessions.map(
+                      (session) => html`
+                        <li
+                          class="history-item ${session.id ===
+                          this.currentChatId
+                            ? "active"
+                            : ""}"
+                          @click=${() => this._loadChatSession(session.id)}
+                        >
+                          <div class="history-item-content">
+                            <span class="history-title">${session.title}</span>
+                            <span class="history-timestamp"
+                              >📅
+                              ${this._formatDateTime(session.createdAt)}</span
+                            >
+                            <span class="history-messages"
+                              >${session.messages.length} messages</span
+                            >
+                          </div>
+                          <div class="history-actions-btns">
+                            <button
+                              class="history-edit-btn"
+                              @click=${(e) => this._renameChat(session.id, e)}
+                              title="Rename chat"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              class="history-delete-btn"
+                              @click=${(e) => this._deleteChat(session.id, e)}
+                              title="Delete chat"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </li>
+                      `
+                    )}
+                  </ul>
+                `}
+          </div>
+        </div>
+
+        <!-- History Overlay for mobile -->
+        ${this.historySidebarOpen
+          ? html`
+              <div
+                class="history-overlay"
+                @click=${this._toggleHistorySidebar}
+              ></div>
+            `
+          : ""}
       </div>
     `;
   }
@@ -417,21 +516,11 @@ export class ChatInterface extends LitElement {
 
   // Clear chat history and start fresh
   _clearChat() {
-    clearMessages();
-    this.messages = [];
-    this._addWelcomeMessage();
-    this.showCrisisResources = false;
+    this._startNewChat();
     this._stopSpeaking();
 
     // Clear the server-side memory as well
-    const isLocal =
-      window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1";
-    const apiUrl = isLocal
-      ? "http://localhost:3001/clear-memory"
-      : "https://vishapii.azurewebsites.net/clear-memory";
-
-    fetch(apiUrl, {
+    fetch(API_URL + "/clear-memory", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId: this.sessionId }),
@@ -523,18 +612,24 @@ export class ChatInterface extends LitElement {
       }
     } catch (error) {
       console.error("Error calling model:", error);
-      
+
       let errorMessage = "I'm sorry, I'm having trouble responding right now. ";
-      
+
       // Add more specific error information
-      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-        errorMessage += "I couldn't connect to the server. Please check your internet connection. ";
-      } else if (error.message.includes('API returned')) {
-        errorMessage += "The server encountered an error processing your request. ";
+      if (
+        error.message.includes("Failed to fetch") ||
+        error.message.includes("NetworkError")
+      ) {
+        errorMessage +=
+          "I couldn't connect to the server. Please check your internet connection. ";
+      } else if (error.message.includes("API returned")) {
+        errorMessage +=
+          "The server encountered an error processing your request. ";
       }
-      
-      errorMessage += "If you're feeling in crisis, please call a crisis service like 988 (in the US) or your local emergency number.";
-      
+
+      errorMessage +=
+        "If you're feeling in crisis, please call a crisis service like 988 (in the US) or your local emergency number.";
+
       this.messages = [
         ...this.messages,
         {
@@ -565,13 +660,13 @@ export class ChatInterface extends LitElement {
         userInfo: this._hasUserInfo() ? this.userInfo : null,
       }),
     });
-    
+
     if (!res.ok) {
       const errorText = await res.text();
       console.error(`❌ API Error: ${res.status} - ${errorText}`);
       throw new Error(`API returned ${res.status}: ${errorText}`);
     }
-    
+
     const data = await res.json();
     return data;
   }
@@ -794,8 +889,8 @@ export class ChatInterface extends LitElement {
   _renderPersonalInfoTab() {
     return html`
       <p class="sidebar-description">
-        Help Vish understand you better! This information is optional and
-        will be used to personalize your experience.
+        Help Vish understand you better! This information is optional and will
+        be used to personalize your experience.
       </p>
 
       <form class="user-info-form" @submit=${this._saveUserInfo}>
@@ -858,7 +953,8 @@ export class ChatInterface extends LitElement {
                 name="occupationType"
                 value="student"
                 ?checked=${this.userInfo.occupationType === "student"}
-                @change=${(e) => this._updateUserInfo("occupationType", e.target.value)}
+                @change=${(e) =>
+                  this._updateUserInfo("occupationType", e.target.value)}
               />
               <span>Student</span>
             </label>
@@ -868,74 +964,87 @@ export class ChatInterface extends LitElement {
                 name="occupationType"
                 value="working"
                 ?checked=${this.userInfo.occupationType === "working"}
-                @change=${(e) => this._updateUserInfo("occupationType", e.target.value)}
+                @change=${(e) =>
+                  this._updateUserInfo("occupationType", e.target.value)}
               />
               <span>Working</span>
             </label>
           </div>
         </div>
 
-        ${this.userInfo.occupationType === "student" ? html`
-          <div class="form-group">
-            <label for="course">Course</label>
-            <input
-              type="text"
-              id="course"
-              placeholder="e.g., BTech, BBA, MBA"
-              .value=${this.userInfo.course || ""}
-              @input=${(e) => this._updateUserInfo("course", e.target.value)}
-            />
-          </div>
+        ${this.userInfo.occupationType === "student"
+          ? html`
+              <div class="form-group">
+                <label for="course">Course</label>
+                <input
+                  type="text"
+                  id="course"
+                  placeholder="e.g., BTech, BBA, MBA"
+                  .value=${this.userInfo.course || ""}
+                  @input=${(e) =>
+                    this._updateUserInfo("course", e.target.value)}
+                />
+              </div>
 
-          <div class="form-group">
-            <label for="branch">Branch/Specialization</label>
-            <input
-              type="text"
-              id="branch"
-              placeholder="e.g., CSE, ECE, Finance"
-              .value=${this.userInfo.branch || ""}
-              @input=${(e) => this._updateUserInfo("branch", e.target.value)}
-            />
-          </div>
-        ` : ""}
+              <div class="form-group">
+                <label for="branch">Branch/Specialization</label>
+                <input
+                  type="text"
+                  id="branch"
+                  placeholder="e.g., CSE, ECE, Finance"
+                  .value=${this.userInfo.branch || ""}
+                  @input=${(e) =>
+                    this._updateUserInfo("branch", e.target.value)}
+                />
+              </div>
+            `
+          : ""}
+        ${this.userInfo.occupationType === "working"
+          ? html`
+              <div class="form-group">
+                <label for="jobTitle">Job Title</label>
+                <input
+                  type="text"
+                  id="jobTitle"
+                  placeholder="Your job title"
+                  .value=${this.userInfo.jobTitle || ""}
+                  @input=${(e) =>
+                    this._updateUserInfo("jobTitle", e.target.value)}
+                />
+              </div>
 
-        ${this.userInfo.occupationType === "working" ? html`
-          <div class="form-group">
-            <label for="jobTitle">Job Title</label>
-            <input
-              type="text"
-              id="jobTitle"
-              placeholder="Your job title"
-              .value=${this.userInfo.jobTitle || ""}
-              @input=${(e) => this._updateUserInfo("jobTitle", e.target.value)}
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="organization">Organization</label>
-            <input
-              type="text"
-              id="organization"
-              placeholder="Your company/organization"
-              .value=${this.userInfo.organization || ""}
-              @input=${(e) => this._updateUserInfo("organization", e.target.value)}
-            />
-          </div>
-        ` : ""}
+              <div class="form-group">
+                <label for="organization">Organization</label>
+                <input
+                  type="text"
+                  id="organization"
+                  placeholder="Your company/organization"
+                  .value=${this.userInfo.organization || ""}
+                  @input=${(e) =>
+                    this._updateUserInfo("organization", e.target.value)}
+                />
+              </div>
+            `
+          : ""}
 
         <div class="form-group">
           <label for="currentMood">Current Mood/Emotional State</label>
           <select
             id="currentMood"
             .value=${this.userInfo.currentMood || ""}
-            @change=${(e) => this._updateUserInfo("currentMood", e.target.value)}
+            @change=${(e) =>
+              this._updateUserInfo("currentMood", e.target.value)}
           >
             <option value="">Select if you'd like...</option>
             <option value="great">Great - Feeling positive</option>
             <option value="good">Good - Doing well</option>
             <option value="okay">Okay - Getting by</option>
-            <option value="struggling">Struggling - Finding things difficult</option>
-            <option value="difficult">Very Difficult - Need extra support</option>
+            <option value="struggling">
+              Struggling - Finding things difficult
+            </option>
+            <option value="difficult">
+              Very Difficult - Need extra support
+            </option>
           </select>
         </div>
 
@@ -955,22 +1064,30 @@ export class ChatInterface extends LitElement {
           <select
             id="communicationStyle"
             .value=${this.userInfo.communicationStyle || ""}
-            @change=${(e) => this._updateUserInfo("communicationStyle", e.target.value)}
+            @change=${(e) =>
+              this._updateUserInfo("communicationStyle", e.target.value)}
           >
             <option value="">No preference</option>
             <option value="direct">Direct - Get straight to the point</option>
             <option value="gentle">Gentle - Soft and encouraging</option>
-            <option value="analytical">Analytical - Logical and structured</option>
-            <option value="empathetic">Empathetic - Understanding and emotional</option>
+            <option value="analytical">
+              Analytical - Logical and structured
+            </option>
+            <option value="empathetic">
+              Empathetic - Understanding and emotional
+            </option>
           </select>
         </div>
 
         <div class="form-group">
-          <label for="previousTherapy">Previous Therapy/Counseling Experience</label>
+          <label for="previousTherapy"
+            >Previous Therapy/Counseling Experience</label
+          >
           <select
             id="previousTherapy"
             .value=${this.userInfo.previousTherapy || ""}
-            @change=${(e) => this._updateUserInfo("previousTherapy", e.target.value)}
+            @change=${(e) =>
+              this._updateUserInfo("previousTherapy", e.target.value)}
           >
             <option value="">Prefer not to say</option>
             <option value="yes-current">Yes - Currently in therapy</option>
@@ -980,21 +1097,32 @@ export class ChatInterface extends LitElement {
         </div>
 
         <div class="form-group">
-          <label for="preferredRole">How would you like Vish to interact with you?</label>
+          <label for="preferredRole"
+            >How would you like Vish to interact with you?</label
+          >
           <select
             id="preferredRole"
             .value=${this.userInfo.preferredRole || ""}
-            @change=${(e) => this._updateUserInfo("preferredRole", e.target.value)}
+            @change=${(e) =>
+              this._updateUserInfo("preferredRole", e.target.value)}
           >
             <option value="">No preference</option>
             <option value="friend">Friend - Casual and supportive</option>
-            <option value="therapist">Therapist - Professional and structured</option>
+            <option value="therapist">
+              Therapist - Professional and structured
+            </option>
             <option value="mentor">Mentor - Guiding and advisory</option>
             <option value="sibling">Sibling - Familiar and caring</option>
             <option value="family">Family Member - Warm and protective</option>
-            <option value="partner">Partner/Significant Other - Intimate and understanding</option>
-            <option value="coach">Life Coach - Motivational and goal-oriented</option>
-            <option value="confidant">Confidant - Trustworthy and non-judgmental</option>
+            <option value="partner">
+              Partner/Significant Other - Intimate and understanding
+            </option>
+            <option value="coach">
+              Life Coach - Motivational and goal-oriented
+            </option>
+            <option value="confidant">
+              Confidant - Trustworthy and non-judgmental
+            </option>
           </select>
         </div>
 
@@ -1010,11 +1138,17 @@ export class ChatInterface extends LitElement {
         </div>
 
         <button type="submit" class="save-info-btn">Save Information</button>
-        ${this._hasUserInfo() ? html`
-          <button type="button" class="clear-info-btn" @click=${this._clearUserInfo}>
-            Clear Information
-          </button>
-        ` : ""}
+        ${this._hasUserInfo()
+          ? html`
+              <button
+                type="button"
+                class="clear-info-btn"
+                @click=${this._clearUserInfo}
+              >
+                Clear Information
+              </button>
+            `
+          : ""}
       </form>
     `;
   }
@@ -1022,7 +1156,8 @@ export class ChatInterface extends LitElement {
   _renderDocumentsTab() {
     return html`
       <p class="sidebar-description">
-        Upload your own documents for Vish to reference. This helps provide more personalized and contextual support.
+        Upload your own documents for Vish to reference. This helps provide more
+        personalized and contextual support.
       </p>
 
       <div class="document-upload-section">
@@ -1036,7 +1171,7 @@ export class ChatInterface extends LitElement {
         />
         <label for="file-upload-input" class="upload-label">
           <span class="upload-btn" ?disabled=${this.isUploadingDoc}>
-            ${this.isUploadingDoc ? '⏳ Uploading...' : '📤 Upload Document'}
+            ${this.isUploadingDoc ? "⏳ Uploading..." : "📤 Upload Document"}
           </span>
         </label>
         <p class="upload-hint">Supported: PDF, TXT, DOC, DOCX (Max 10MB)</p>
@@ -1044,26 +1179,40 @@ export class ChatInterface extends LitElement {
 
       <div class="documents-list">
         <h4>Your Documents (${this.userDocuments.length})</h4>
-        ${this.userDocuments.length === 0 ? html`
-          <p class="no-documents">No documents uploaded yet. Add your first document to get started!</p>
-        ` : html`
-          <ul class="doc-items">
-            ${this.userDocuments.map((doc, index) => html`
-              <li class="doc-item">
-                <div class="doc-info">
-                  <span class="doc-icon">📄</span>
-                  <div class="doc-details">
-                    <span class="doc-name">${doc.name}</span>
-                    <span class="doc-size">${this._formatFileSize(doc.size)} • ${this._formatDate(doc.uploadedAt)}</span>
-                  </div>
-                </div>
-                <button class="doc-delete-btn" @click=${() => this._deleteDocument(index)} title="Remove document">
-                  🗑️
-                </button>
-              </li>
-            `)}
-          </ul>
-        `}
+        ${this.userDocuments.length === 0
+          ? html`
+              <p class="no-documents">
+                No documents uploaded yet. Add your first document to get
+                started!
+              </p>
+            `
+          : html`
+              <ul class="doc-items">
+                ${this.userDocuments.map(
+                  (doc, index) => html`
+                    <li class="doc-item">
+                      <div class="doc-info">
+                        <span class="doc-icon">📄</span>
+                        <div class="doc-details">
+                          <span class="doc-name">${doc.name}</span>
+                          <span class="doc-size"
+                            >${this._formatFileSize(doc.size)} •
+                            ${this._formatDate(doc.uploadedAt)}</span
+                          >
+                        </div>
+                      </div>
+                      <button
+                        class="doc-delete-btn"
+                        @click=${() => this._deleteDocument(index)}
+                        title="Remove document"
+                      >
+                        🗑️
+                      </button>
+                    </li>
+                  `
+                )}
+              </ul>
+            `}
       </div>
     `;
   }
@@ -1138,7 +1287,10 @@ export class ChatInterface extends LitElement {
 
   _saveUserDocuments() {
     try {
-      localStorage.setItem("vishUserDocuments", JSON.stringify(this.userDocuments));
+      localStorage.setItem(
+        "vishUserDocuments",
+        JSON.stringify(this.userDocuments)
+      );
     } catch (error) {
       console.error("Error saving user documents:", error);
     }
@@ -1156,8 +1308,8 @@ export class ChatInterface extends LitElement {
     }
 
     // Validate file type
-    const allowedTypes = ['.pdf', '.txt', '.doc', '.docx'];
-    const fileExt = '.' + file.name.split('.').pop().toLowerCase();
+    const allowedTypes = [".pdf", ".txt", ".doc", ".docx"];
+    const fileExt = "." + file.name.split(".").pop().toLowerCase();
     if (!allowedTypes.includes(fileExt)) {
       alert("Please upload a PDF, TXT, DOC, or DOCX file");
       e.target.value = "";
@@ -1168,15 +1320,15 @@ export class ChatInterface extends LitElement {
 
     try {
       const formData = new FormData();
-      formData.append('document', file);
+      formData.append("document", file);
 
-      const response = await fetch(API_URL + '/upload-document', {
-        method: 'POST',
+      const response = await fetch(API_URL + "/upload-document", {
+        method: "POST",
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error('Upload failed');
+        throw new Error("Upload failed");
       }
 
       const result = await response.json();
@@ -1189,8 +1341,8 @@ export class ChatInterface extends LitElement {
           name: file.name,
           size: file.size,
           uploadedAt: new Date().toISOString(),
-          path: result.path || file.name
-        }
+          path: result.path || file.name,
+        },
       ];
 
       this._saveUserDocuments();
@@ -1205,7 +1357,11 @@ export class ChatInterface extends LitElement {
   }
 
   async _deleteDocument(index) {
-    if (!confirm(`Are you sure you want to remove "${this.userDocuments[index].name}"?`)) {
+    if (
+      !confirm(
+        `Are you sure you want to remove "${this.userDocuments[index].name}"?`
+      )
+    ) {
       return;
     }
 
@@ -1214,7 +1370,7 @@ export class ChatInterface extends LitElement {
     try {
       // Call backend to delete the document
       await fetch(API_URL + `/delete-document/${doc.id}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
 
       // Remove from list
@@ -1230,9 +1386,9 @@ export class ChatInterface extends LitElement {
   }
 
   _formatFileSize(bytes) {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   }
 
   _formatDate(isoString) {
@@ -1243,11 +1399,233 @@ export class ChatInterface extends LitElement {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'Just now';
+    if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
     return date.toLocaleDateString();
+  }
+
+  // Chat session management methods
+  _loadChatSessions() {
+    try {
+      const savedSessions = localStorage.getItem("vishChatSessions");
+      return savedSessions ? JSON.parse(savedSessions) : [];
+    } catch (error) {
+      console.error("Error loading chat sessions:", error);
+      return [];
+    }
+  }
+
+  _saveChatSessions() {
+    try {
+      localStorage.setItem(
+        "vishChatSessions",
+        JSON.stringify(this.chatSessions)
+      );
+    } catch (error) {
+      console.error("Error saving chat sessions:", error);
+    }
+  }
+
+  _getCurrentChatId() {
+    const currentId = localStorage.getItem("vishCurrentChatId");
+    if (currentId) return currentId;
+
+    // Create a new chat ID
+    const newId =
+      "chat_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
+    localStorage.setItem("vishCurrentChatId", newId);
+    return newId;
+  }
+
+  _saveCurrentChat() {
+    if (this.messages.length === 0) return;
+
+    // Find existing session or create new one
+    const existingIndex = this.chatSessions.findIndex(
+      (s) => s.id === this.currentChatId
+    );
+
+    // Preserve custom title if it exists and is not "New Chat", otherwise generate new one
+    const existingTitle =
+      existingIndex >= 0 ? this.chatSessions[existingIndex].title : null;
+    const shouldGenerateNewTitle =
+      !existingTitle || existingTitle === "New Chat";
+    const title = shouldGenerateNewTitle
+      ? this._generateChatTitle()
+      : existingTitle;
+
+    const chatSession = {
+      id: this.currentChatId,
+      title: title,
+      messages: this.messages,
+      sessionId: this.sessionId,
+      createdAt:
+        existingIndex >= 0
+          ? this.chatSessions[existingIndex].createdAt
+          : new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (existingIndex >= 0) {
+      this.chatSessions[existingIndex] = chatSession;
+    } else {
+      this.chatSessions = [chatSession, ...this.chatSessions];
+    }
+
+    this._saveChatSessions();
+  }
+
+  _generateChatTitle() {
+    // Get first user message as title
+    const firstUserMsg = this.messages.find((m) => m.role === "user");
+    if (firstUserMsg) {
+      const title = firstUserMsg.content.substring(0, 30);
+      return title.length < firstUserMsg.content.length ? title + "..." : title;
+    }
+    return "New Chat";
+  }
+
+  _startNewChat(skipSave = false) {
+    // Save current chat before starting new one (unless skipSave is true)
+    if (!skipSave) {
+      this._saveCurrentChat();
+    }
+
+    // Clear current messages
+    this.messages = [];
+    clearMessages();
+
+    // Generate new IDs
+    this.currentChatId =
+      "chat_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
+    this.sessionId = this._generateSessionId();
+    localStorage.setItem("vishCurrentChatId", this.currentChatId);
+
+    // Add welcome message
+    this._addWelcomeMessage();
+
+    this.requestUpdate();
+  }
+
+  _toggleHistorySidebar() {
+    this.historySidebarOpen = !this.historySidebarOpen;
+  }
+
+  _loadChatSession(chatId) {
+    const session = this.chatSessions.find((s) => s.id === chatId);
+    if (!session) return;
+
+    // Save current chat first
+    if (this.messages.length > 0) {
+      this._saveCurrentChat();
+    }
+
+    // Load selected chat
+    this.currentChatId = session.id;
+    this.sessionId = session.sessionId;
+    this.messages = session.messages;
+    localStorage.setItem("vishCurrentChatId", chatId);
+    saveMessages(this.messages);
+
+    // Close history sidebar
+    this.historySidebarOpen = false;
+
+    this.requestUpdate();
+  }
+
+  _deleteChat(chatId, event) {
+    event.stopPropagation();
+
+    const session = this.chatSessions.find((s) => s.id === chatId);
+    if (!session) return;
+
+    if (!confirm(`Delete chat: "${session.title}"?`)) return;
+
+    // Check if deleting current chat
+    const isDeletingCurrentChat = chatId === this.currentChatId;
+
+    // Remove from sessions
+    this.chatSessions = this.chatSessions.filter((s) => s.id !== chatId);
+    this._saveChatSessions();
+
+    // If deleted current chat, start new one without saving
+    if (isDeletingCurrentChat) {
+      this._startNewChat(true); // Skip saving the deleted chat
+    }
+
+    this.requestUpdate();
+  }
+
+  _deleteAllChats() {
+    if (!confirm("Delete all chat history? This cannot be undone.")) return;
+
+    // Clear all sessions
+    this.chatSessions = [];
+    this._saveChatSessions();
+
+    // Start new chat without saving current one
+    this._startNewChat(true);
+    this.requestUpdate();
+  }
+
+  _renameChat(chatId, event) {
+    event.stopPropagation();
+
+    const session = this.chatSessions.find((s) => s.id === chatId);
+    if (!session) return;
+
+    const newTitle = prompt("Enter new chat name:", session.title);
+    if (!newTitle || newTitle.trim() === "") return;
+
+    // Update the title
+    session.title = newTitle.trim();
+    this._saveChatSessions();
+
+    // If this is the current chat, also update it in the sessions array
+    if (chatId === this.currentChatId) {
+      this._saveCurrentChat();
+    }
+
+    this.requestUpdate();
+  }
+
+  _formatDateTime(isoString) {
+    const date = new Date(isoString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    // If today, show time
+    if (diffDays === 0) {
+      return date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+    }
+
+    // If this week, show day and time
+    if (diffDays < 7) {
+      return date.toLocaleDateString("en-US", {
+        weekday: "short",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+    }
+
+    // Otherwise show full date and time
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
   }
 
   _getUserInfoContext() {

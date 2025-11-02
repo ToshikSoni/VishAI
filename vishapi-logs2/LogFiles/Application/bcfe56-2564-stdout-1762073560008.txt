@@ -1,4 +1,0 @@
-Found 0 PDF files in mental health resources directory
-Vish AI Friend Support Chatbot API running on port \\.\pipe\8cc89705-a08c-4e68-973e-4efa92a382ec
-Environment: Configured ✓
-Mental health resources loaded successfully
