@@ -23,6 +23,16 @@ param webappName string = 'webapp'
 })
 param webappLocation string
 
+@secure()
+@description('Azure OpenAI API Key')
+param azureInferenceSdkKey string
+
+@description('Azure OpenAI Instance Name')
+param instanceName string
+
+@description('Azure OpenAI Deployment Name')
+param deploymentName string
+
 // ---------------------------------------------------------------------------
 // Common variables
 var abbrs = loadJsonContent('./abbreviations.json')
@@ -68,7 +78,15 @@ module webapi 'br/public:avm/res/web/site:0.15.1' = {
     name: webapiName
     tags: union(tags, { 'azd-service-name': 'webapi' })
     serverFarmResourceId: serverfarm.outputs.resourceId
+    appSettingsKeyValuePairs: {
+      AZURE_INFERENCE_SDK_KEY: azureInferenceSdkKey
+      INSTANCE_NAME: instanceName
+      DEPLOYMENT_NAME: deploymentName
+      SCM_DO_BUILD_DURING_DEPLOYMENT: 'true'
+      WEBSITE_NODE_DEFAULT_VERSION: '~20'
+    }
   }
 }
 
 output WEBAPP_URL string = webapp.outputs.defaultHostname
+output WEBAPI_URL string = webapi.outputs.defaultHostname

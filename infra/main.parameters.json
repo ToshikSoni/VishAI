@@ -9,10 +9,19 @@
         "value": "${AZURE_LOCATION}"
       },
       "webappLocation": {
-      "value": "${AZURE_WEBAPP_LOCATION=westeurope}"
-    },
+        "value": "${AZURE_WEBAPP_LOCATION=westeurope}"
+      },
       "principalId": {
         "value": "${AZURE_PRINCIPAL_ID}"
+      },
+      "azureInferenceSdkKey": {
+        "value": "${AZURE_INFERENCE_SDK_KEY}"
+      },
+      "instanceName": {
+        "value": "${INSTANCE_NAME}"
+      },
+      "deploymentName": {
+        "value": "${DEPLOYMENT_NAME}"
       }
     }
 }
