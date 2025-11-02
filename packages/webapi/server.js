@@ -188,7 +188,7 @@ loadMentalHealthPDFs()
     console.error("Failed to load mental health resources:", err);
   });
 
-function retrieveRelevantContent(query, includeUserDocs = true) {
+async function retrieveRelevantContent(query, includeUserDocs = true) {
   const queryTerms = query
     .toLowerCase()
     .split(/\s+/)
@@ -212,14 +212,17 @@ function retrieveRelevantContent(query, includeUserDocs = true) {
         file.endsWith('.pdf') || file.endsWith('.txt')
       );
       
+      console.log(`📄 Found ${userFiles.length} user document(s) to process`);
+      
       for (const file of userFiles) {
         const filePath = path.join(userDocsPath, file);
         const originalName = file.split('-').slice(2).join('-'); // Remove timestamp prefix
         
         if (file.endsWith('.pdf')) {
           try {
+            console.log(`📖 Processing user PDF: ${originalName}`);
             const dataBuffer = fs.readFileSync(filePath);
-            const data = pdfParse(dataBuffer);
+            const data = await pdfParse(dataBuffer);
             const text = data.text;
             
             // Chunk the user document
@@ -237,6 +240,8 @@ function retrieveRelevantContent(query, includeUserDocs = true) {
             }
             if (currentChunk) chunks.push(currentChunk);
             
+            console.log(`✅ Loaded ${chunks.length} chunks from PDF: ${originalName}`);
+            
             chunks.forEach(chunk => {
               allChunksWithSources.push({ chunk, source: `[Your Document] ${originalName}` });
             });
@@ -245,6 +250,7 @@ function retrieveRelevantContent(query, includeUserDocs = true) {
           }
         } else if (file.endsWith('.txt')) {
           try {
+            console.log(`📄 Processing user TXT: ${originalName}`);
             const text = fs.readFileSync(filePath, 'utf-8');
             
             // Chunk the text file
@@ -261,6 +267,8 @@ function retrieveRelevantContent(query, includeUserDocs = true) {
               }
             }
             if (currentChunk) chunks.push(currentChunk);
+            
+            console.log(`✅ Loaded ${chunks.length} chunks from TXT: ${originalName}`);
             
             chunks.forEach(chunk => {
               allChunksWithSources.push({ chunk, source: `[Your Document] ${originalName}` });
@@ -324,7 +332,7 @@ app.post("/chat", async (req, res) => {
   const memoryVars = await memory.loadMemoryVariables({});
 
   if (useRAG) {
-    sources = retrieveRelevantContent(userMessage);
+    sources = await retrieveRelevantContent(userMessage);
   }
 
   // Build user context string if user info is provided
@@ -576,7 +584,7 @@ app.post("/chat-audio", async (req, res) => {
   const memoryVars = await memory.loadMemoryVariables({});
 
   if (useRAG) {
-    sources = retrieveRelevantContent(userMessage);
+    sources = await retrieveRelevantContent(userMessage);
   }
 
   // Build user context string if user info is provided

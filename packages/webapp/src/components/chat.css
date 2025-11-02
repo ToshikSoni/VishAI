@@ -1569,6 +1569,7 @@ button:disabled {
 }
 
 .upload-btn {
+    display: inline-block;
     width: 100%;
     padding: 14px;
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
@@ -1581,6 +1582,7 @@ button:disabled {
     transition: all 0.3s ease;
     font-family: 'Quicksand', sans-serif;
     box-shadow: 0 4px 12px rgba(112, 179, 161, 0.3);
+    text-align: center;
 }
 
 .upload-btn:hover:not(:disabled) {

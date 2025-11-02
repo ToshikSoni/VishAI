@@ -1026,17 +1026,18 @@ export class ChatInterface extends LitElement {
       </p>
 
       <div class="document-upload-section">
-        <label class="upload-label">
-          <input
-            type="file"
-            accept=".pdf,.txt,.doc,.docx"
-            @change=${this._handleFileUpload}
-            style="display: none;"
-            ?disabled=${this.isUploadingDoc}
-          />
-          <button class="upload-btn" ?disabled=${this.isUploadingDoc}>
+        <input
+          type="file"
+          id="file-upload-input"
+          accept=".pdf,.txt,.doc,.docx"
+          @change=${this._handleFileUpload}
+          style="display: none;"
+          ?disabled=${this.isUploadingDoc}
+        />
+        <label for="file-upload-input" class="upload-label">
+          <span class="upload-btn" ?disabled=${this.isUploadingDoc}>
             ${this.isUploadingDoc ? '⏳ Uploading...' : '📤 Upload Document'}
-          </button>
+          </span>
         </label>
         <p class="upload-hint">Supported: PDF, TXT, DOC, DOCX (Max 10MB)</p>
       </div>
@@ -1169,7 +1170,7 @@ export class ChatInterface extends LitElement {
       const formData = new FormData();
       formData.append('document', file);
 
-      const response = await fetch('/upload-document', {
+      const response = await fetch(API_URL + '/upload-document', {
         method: 'POST',
         body: formData,
       });
@@ -1212,7 +1213,7 @@ export class ChatInterface extends LitElement {
 
     try {
       // Call backend to delete the document
-      await fetch(`/delete-document/${doc.id}`, {
+      await fetch(API_URL + `/delete-document/${doc.id}`, {
         method: 'DELETE',
       });
 
