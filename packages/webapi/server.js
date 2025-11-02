@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
-import pdfParse from "pdf-parse/lib/pdf-parse.js";
+import pdfParse from "pdf-parse";
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -19,6 +19,34 @@ dotenv.config();
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Health check endpoints - Must be before other routes
+app.get("/", (req, res) => {
+  res.json({
+    status: "ok",
+    message: "Vish AI API is running!",
+    timestamp: new Date().toISOString(),
+    endpoints: ["/chat", "/chat-audio", "/upload-document", "/delete-document/:id", "/clear-memory", "/health"]
+  });
+});
+
+app.get("/health", (req, res) => {
+  const hasEnvVars = !!(
+    process.env.AZURE_INFERENCE_SDK_KEY &&
+    process.env.INSTANCE_NAME &&
+    process.env.DEPLOYMENT_NAME
+  );
+  
+  res.json({
+    status: hasEnvVars ? "healthy" : "unhealthy",
+    environment: {
+      hasApiKey: !!process.env.AZURE_INFERENCE_SDK_KEY,
+      hasInstanceName: !!process.env.INSTANCE_NAME,
+      hasDeploymentName: !!process.env.DEPLOYMENT_NAME,
+    },
+    timestamp: new Date().toISOString()
+  });
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -432,13 +460,24 @@ Always prioritize the person's wellbeing in your responses.${userContext}`;
         : [],
     });
   } catch (err) {
-    console.error('Error in /chat endpoint:', err);
+    console.error('============ ERROR IN /CHAT ENDPOINT ============');
+    console.error('Error object:', err);
+    console.error('Error stack:', err.stack);
     console.error('Error details:', {
       name: err.name,
       message: err.message,
       status: err.status,
-      code: err.code
+      code: err.code,
+      response: err.response?.data
     });
+    console.error('Environment check:', {
+      hasApiKey: !!process.env.AZURE_INFERENCE_SDK_KEY,
+      hasInstance: !!process.env.INSTANCE_NAME,
+      hasDeployment: !!process.env.DEPLOYMENT_NAME,
+      instanceName: process.env.INSTANCE_NAME,
+      deploymentName: process.env.DEPLOYMENT_NAME
+    });
+    console.error('=================================================');
 
     // Handle content filter errors specifically
     if (err.code === 'content_filter' || err.status === 400) {
@@ -721,4 +760,5 @@ ${audioInstruction}${userContext}`;
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Vish AI Friend Support Chatbot API running on port ${PORT}`);
+  console.log(`Environment: ${process.env.AZURE_INFERENCE_SDK_KEY ? 'Configured ✓' : 'Missing API Key ✗'}`);
 });

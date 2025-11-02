@@ -58,6 +58,9 @@ module webapp 'br/public:avm/res/web/static-site:0.7.0' = {
     location: webappLocation
     tags: union(tags, { 'azd-service-name': webappName })
     sku: 'Standard'
+    appSettings: {
+      VITE_API_URL: 'https://${webapiName}.azurewebsites.net'
+    }
   }
 }
 

@@ -1,0 +1,58 @@
+(node:8120) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+============ ERROR IN /CHAT ENDPOINT ============
+Error object: BadRequestError: 400 The selected model does not support audio modality.
+    at APIError.generate (file:///C:/home/site/wwwroot/node_modules/openai/core/error.mjs:41:20)
+    at AzureOpenAI.makeStatusError (file:///C:/home/site/wwwroot/node_modules/openai/client.mjs:162:32)
+    at AzureOpenAI.makeRequest (file:///C:/home/site/wwwroot/node_modules/openai/client.mjs:330:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///C:/home/site/wwwroot/server.js:424:24 {
+  status: 400,
+  headers: Headers {
+    'content-length': '182',
+    'content-type': 'application/json',
+    'apim-request-id': '62d0f889-48bb-4cac-9693-e2f4a6a0a79f',
+    'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
+    'x-content-type-options': 'nosniff',
+    'x-ratelimit-limit-tokens': '50000',
+    'x-ms-region': 'East US 2',
+    'x-ratelimit-remaining-requests': '49',
+    'x-ratelimit-limit-requests': '50',
+    'x-ms-rai-invoked': 'true',
+    'x-request-id': '08679e4b-6b83-4999-9917-61d165160d70',
+    'x-ratelimit-remaining-tokens': '49881',
+    'x-ms-deployment-name': 'gpt-5-chat',
+    date: 'Sun, 02 Nov 2025 08:52:45 GMT'
+  },
+  requestID: '08679e4b-6b83-4999-9917-61d165160d70',
+  error: {
+    message: 'The selected model does not support audio modality.',
+    type: 'invalid_request_error',
+    param: 'modalities',
+    code: 'invalid_value'
+  },
+  code: 'invalid_value',
+  param: 'modalities',
+  type: 'invalid_request_error'
+}
+Error stack: Error: 400 The selected model does not support audio modality.
+    at APIError.generate (file:///C:/home/site/wwwroot/node_modules/openai/core/error.mjs:41:20)
+    at AzureOpenAI.makeStatusError (file:///C:/home/site/wwwroot/node_modules/openai/client.mjs:162:32)
+    at AzureOpenAI.makeRequest (file:///C:/home/site/wwwroot/node_modules/openai/client.mjs:330:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///C:/home/site/wwwroot/server.js:424:24
+Error details: {
+  name: 'Error',
+  message: '400 The selected model does not support audio modality.',
+  status: 400,
+  code: 'invalid_value',
+  response: undefined
+}
+Environment check: {
+  hasApiKey: true,
+  hasInstance: true,
+  hasDeployment: true,
+  instanceName: 'ai-toshiksoni4664ai797034018702',
+  deploymentName: 'gpt-5-chat'
+}
+=================================================

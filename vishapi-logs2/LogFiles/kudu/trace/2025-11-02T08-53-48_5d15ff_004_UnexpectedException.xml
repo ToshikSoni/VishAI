@@ -1,0 +1,7 @@
+<exception>System.ArgumentNullException: Path cannot be null.
+Parameter name: path
+   at System.IO.FileStream.Init(String path, FileMode mode, FileAccess access, Int32 rights, Boolean useRights, FileShare share, Int32 bufferSize, FileOptions options, SECURITY_ATTRIBUTES secAttrs, String msgPath, Boolean bFromProxy, Boolean useLongPath, Boolean checkHost)
+   at System.IO.FileStream..ctor(String path, FileMode mode, FileAccess access, FileShare share)
+   at System.IO.Abstractions.FileWrapper.Open(String path, FileMode mode, FileAccess access, FileShare share)
+   at Kudu.Core.Infrastructure.FileSystemHelpers.AppendAllTextToFile(String path, String content)
+   at Kudu.Core.Tracing.XmlTracer.WriteEndTrace()</exception>

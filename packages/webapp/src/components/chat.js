@@ -6,6 +6,7 @@ import {
   clearMessages,
 } from "../utils/chatStore.js";
 import { formatMarkdown } from "../utils/markdownFormatter.js";
+import { API_URL } from "../config/api.js";
 import "./chat.css";
 
 export class ChatInterface extends LitElement {
@@ -522,12 +523,23 @@ export class ChatInterface extends LitElement {
       }
     } catch (error) {
       console.error("Error calling model:", error);
+      
+      let errorMessage = "I'm sorry, I'm having trouble responding right now. ";
+      
+      // Add more specific error information
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        errorMessage += "I couldn't connect to the server. Please check your internet connection. ";
+      } else if (error.message.includes('API returned')) {
+        errorMessage += "The server encountered an error processing your request. ";
+      }
+      
+      errorMessage += "If you're feeling in crisis, please call a crisis service like 988 (in the US) or your local emergency number.";
+      
       this.messages = [
         ...this.messages,
         {
           role: "assistant",
-          content:
-            "I'm sorry, I'm having trouble responding right now. If you're feeling in crisis, please call a crisis service like 988 (in the US) or your local emergency number.",
+          content: errorMessage,
         },
       ];
     } finally {
@@ -536,18 +548,11 @@ export class ChatInterface extends LitElement {
   }
 
   async _apiCall(message) {
-    // Automatically detect local vs production environment
-    const isLocal =
-      window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1";
-
     // Use audio endpoint when in talk mode, regular endpoint otherwise
     const endpoint = this.talkModeActive ? "/chat-audio" : "/chat";
-    const baseUrl = isLocal
-      ? "http://localhost:3001"
-      : "https://vishapii.azurewebsites.net";
+    const apiUrl = API_URL + endpoint;
 
-    const apiUrl = baseUrl + endpoint;
+    console.log(`🌐 Calling API: ${apiUrl}`);
 
     const res = await fetch(apiUrl, {
       method: "POST",
@@ -560,6 +565,13 @@ export class ChatInterface extends LitElement {
         userInfo: this._hasUserInfo() ? this.userInfo : null,
       }),
     });
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error(`❌ API Error: ${res.status} - ${errorText}`);
+      throw new Error(`API returned ${res.status}: ${errorText}`);
+    }
+    
     const data = await res.json();
     return data;
   }

@@ -1,0 +1,34 @@
+2025-11-02T08:33:48.6432495Z,Updating submodules.,982dfcdb-aac5-4cb8-8599-b0c99a8bc42a,0
+2025-11-02T08:33:48.7824590Z,Preparing deployment for commit id '9f532313bb'.,76fa3244-c061-4588-9d93-1ce99e80168f,0
+2025-11-02T08:33:49.2981408Z,Generating deployment script.,09283dcd-3dc5-4aa4-a79e-fcc98709451c,0
+	2025-11-02T08:33:49.6574647Z,Using cached version of deployment script (command: 'azure -y --no-dot-deployment -r "C:\local\Temp\zipdeploy\extracted" -o "C:\home\site\deployments\tools" --node --sitePath "C:\local\Temp\zipdeploy\extracted"').,,0
+2025-11-02T08:33:49.7980950Z,Running deployment command...,8f248fcc-48b1-455b-8c54-aa6b29d3c13c,0
+	2025-11-02T08:33:49.8137179Z,Command: "C:\home\site\deployments\tools\deploy.cmd",,0
+	2025-11-02T08:33:51.2668534Z,Handling node.js deployment.,,0
+	2025-11-02T08:33:52.9577839Z,Creating app_offline.htm,,0
+	2025-11-02T08:33:52.9856126Z,KuduSync.NET from: 'C:\local\Temp\zipdeploy\extracted' to: 'C:\home\site\wwwroot',,0
+	2025-11-02T08:33:53.0168613Z,Copying file: 'package-lock.json',,0
+	2025-11-02T08:33:53.0793629Z,Copying file: 'server.js',,0
+	2025-11-02T08:33:53.0956521Z,Deleting app_offline.htm,,0
+	2025-11-02T08:33:54.7515604Z,Using start-up script server.js from package.json.,,0
+	2025-11-02T08:33:55.0950105Z,Node.js versions available on the platform are: 0.6.20&comma; 0.8.2&comma; 0.8.19&comma; 0.8.26&comma; 0.8.27&comma; 0.8.28&comma; 0.10.5&comma; 0.10.18&comma; 0.10.21&comma; 0.10.24&comma; 0.10.26&comma; 0.10.28&comma; 0.10.29&comma; 0.10.31&comma; 0.10.32&comma; 0.10.40&comma; 4.0.0&comma; 4.1.0&comma; 4.1.2&comma; 4.2.1&comma; 4.2.2&comma; 4.2.3&comma; 4.2.4&comma; 4.3.0&comma; 4.3.2&comma; 4.4.0&comma; 4.4.1&comma; 4.4.6&comma; 4.4.7&comma; 4.5.0&comma; 4.6.0&comma; 4.6.1&comma; 4.8.4&comma; 4.9.1&comma; 5.0.0&comma; 5.1.1&comma; 5.3.0&comma; 5.4.0&comma; 5.5.0&comma; 5.6.0&comma; 5.7.0&comma; 5.7.1&comma; 5.8.0&comma; 5.9.1&comma; 6.0.0&comma; 6.1.0&comma; 6.2.2&comma; 6.3.0&comma; 6.5.0&comma; 6.6.0&comma; 6.7.0&comma; 6.9.0&comma; 6.9.1&comma; 6.9.2&comma; 6.9.4&comma; 6.9.5&comma; 6.10.0&comma; 6.10.3&comma; 6.11.1&comma; 6.11.2&comma; 6.11.5&comma; 6.12.2&comma; 6.12.3&comma; 6.17.1&comma; 8.0.0&comma; 8.1.4&comma; 8.4.0&comma; 8.5.0&comma; 8.7.0&comma; 8.8.0&comma; 8.8.1&comma; 8.9.0&comma; 8.9.3&comma; 8.9.4&comma; 8.10.0&comma; 8.11.1&comma; 8.17.0&comma; 10.0.0&comma; 10.6.0&comma; 10.14.1&comma; 10.15.2&comma; 10.16.3&comma; 10.19.0&comma; 10.24.1&comma; 12.13.0&comma; 12.15.0&comma; 12.18.0&comma; 12.21.0&comma; 12.22.12&comma; 14.10.1&comma; 14.15.0&comma; 14.15.1&comma; 14.16.0&comma; 14.18.1&comma; 14.20.0&comma; 16.9.1&comma; 16.13.0&comma; 16.16.0&comma; 18.3.0&comma; 18.12.1&comma; 18.19.1&comma; 18.20.4&comma; 18.20.7&comma; 20.9.0&comma; 20.18.3&comma; 20.19.4&comma; 22.5.1&comma; 22.14.0&comma; 22.17.1.,,0
+	2025-11-02T08:33:55.1418819Z,Selected node.js version 22.17.1. Use package.json file to choose a different version.,,0
+	2025-11-02T08:33:55.1731265Z,Selected npm version 11.5.1,,0
+	2025-11-02T08:33:55.2043784Z,Updating iisnode.yml at C:\home\site\wwwroot\iisnode.yml,,0
+	2025-11-02T08:33:57.6898838Z,npm warn config production Use `--omit=dev` instead.,,1
+	2025-11-02T08:34:14.8171577Z,,,0
+	2025-11-02T08:34:14.8294932Z,up to date&comma; audited 192 packages in 17s,,0
+	2025-11-02T08:34:14.8451460Z,npm notice,,1
+	2025-11-02T08:34:14.8607449Z,,,0
+	2025-11-02T08:34:14.8778793Z,37 packages are looking for funding,,0
+	2025-11-02T08:34:14.8778793Z,npm notice New minor version of npm available! 11.5.1 -> 11.6.2,,1
+	2025-11-02T08:34:14.9076175Z,  run `npm fund` for details,,0
+	2025-11-02T08:34:14.9275563Z,npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.2,,1
+	2025-11-02T08:34:14.9544951Z,,,0
+	2025-11-02T08:34:14.9857447Z,found 0 vulnerabilities,,0
+	2025-11-02T08:34:15.0657041Z,npm notice To update run: npm install -g npm@11.6.2,,1
+	2025-11-02T08:34:15.7513698Z,npm notice,,1
+	2025-11-02T08:34:21.5818759Z,Finished successfully.,,0
+2025-11-02T08:34:21.8144549Z,Running post deployment command(s)...,1097480a-fac0-4210-9fa5-7a8c21ffef01,0
+2025-11-02T08:34:22.0329015Z,Triggering recycle (preview mode disabled).,d758cfe3-4d31-4e22-83b7-547c54f461d6,0
+2025-11-02T08:34:22.4891713Z,Deployment successful.,f95298bc-7578-4a69-bd01-d82dd771b874,0

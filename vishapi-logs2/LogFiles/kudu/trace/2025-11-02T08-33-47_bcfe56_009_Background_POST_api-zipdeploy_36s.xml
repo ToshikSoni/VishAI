@@ -1,0 +1,76 @@
+<step title="BackgroundTrace" date="2025-11-02T08:33:47.048" instance="bcfe56" url="/api/zipdeploy" method="POST" >
+  <step title="Updating shutdown sentinel last write time" date="2025-11-02T08:33:47.283" SemaphoreCount="7" /><!-- duration: 18ms -->
+  <step title="LockFile &apos;C:\home\site\locks\deployments.lock&apos; acquired" date="2025-11-02T08:33:47.302" /><!-- duration: 11ms -->
+  <step title="Creating temporary deployment" date="2025-11-02T08:33:47.360" /><!-- duration: 204ms -->
+  <step title="Performing fetch based deployment" date="2025-11-02T08:33:47.594" >
+    <step title="Fetching changes." date="2025-11-02T08:33:47.844" /><!-- duration: 18ms -->
+    <step title="Starting LocalZipHandler" date="2025-11-02T08:33:47.878" /><!-- duration: 16ms -->
+    <step title="Cleaning up temp folders from previous zip deployments and extracting pushed zip file C:\local\Temp\zipdeploy\vwfxmagj.zip (0.03 MB) to C:\local\Temp\zipdeploy\extracted" date="2025-11-02T08:33:48.001" /><!-- duration: 0ms -->
+    <step title="Cleaning up temp folders from previous zip deployments and extracting pushed zip file C:\local\Temp\zipdeploy\vwfxmagj.zip (0.03 MB) to C:\local\Temp\zipdeploy\extracted" date="2025-11-02T08:33:48.016" >
+      <step title="Extracting 6 entries to C:\local\Temp\zipdeploy\extracted directory" date="2025-11-02T08:33:48.147" >
+        <step title="Extracting to C:\local\Temp\zipdeploy\extracted\.env ..." date="2025-11-02T08:33:48.159" /><!-- duration: 60ms -->
+        <step title="Extracting to C:\local\Temp\zipdeploy\extracted\.env.example ..." date="2025-11-02T08:33:48.235" /><!-- duration: 0ms -->
+        <step title="Extracting to C:\local\Temp\zipdeploy\extracted\package-lock.json ..." date="2025-11-02T08:33:48.251" /><!-- duration: 16ms -->
+        <step title="Extracting to C:\local\Temp\zipdeploy\extracted\package.json ..." date="2025-11-02T08:33:48.268" /><!-- duration: 14ms -->
+        <step title="Extracting to C:\local\Temp\zipdeploy\extracted\server.js ..." date="2025-11-02T08:33:48.282" /><!-- duration: 0ms -->
+        <step title="Extracting to C:\local\Temp\zipdeploy\extracted\web.config ..." date="2025-11-02T08:33:48.298" /><!-- duration: 16ms -->
+      </step><!-- duration: 166ms -->
+    </step><!-- duration: 313ms -->
+    <step title="Before sending BuildRequestReceived status to /api/updatedeploystatus" date="2025-11-02T08:33:48.344" /><!-- duration: 0ms -->
+    <step title="DeploymentManager.Deploy(id:9f532313bb3044cc8e7e9c8b6d2baa13)" date="2025-11-02T08:33:48.360" >
+      <step title="Collecting changeset information" date="2025-11-02T08:33:48.391" /><!-- duration: 158ms -->
+      <step title="Updating submodules" date="2025-11-02T08:33:48.563" >
+        <step title="Updating submodules." date="2025-11-02T08:33:48.643" /><!-- duration: 16ms -->
+      </step><!-- duration: 96ms -->
+      <step title="Preparing deployment for commit id &apos;9f532313bb&apos;." date="2025-11-02T08:33:48.798" /><!-- duration: 94ms -->
+      <step title="Determining deployment builder" date="2025-11-02T08:33:48.970" >
+        <step title="UseMSBuild16: True" date="2025-11-02T08:33:48.986" /><!-- duration: 31ms -->
+        <step title="Builder is NodeSiteBuilder" date="2025-11-02T08:33:49.130" /><!-- duration: 0ms -->
+      </step><!-- duration: 173ms -->
+      <step title="Copying SSH keys" date="2025-11-02T08:33:49.204" /><!-- duration: 31ms -->
+      <step title="Building" date="2025-11-02T08:33:49.236" >
+        <step title="Generating deployment script." date="2025-11-02T08:33:49.298" /><!-- duration: 16ms -->
+        <step title="Generating deployment script" date="2025-11-02T08:33:49.313" >
+          <step title="Using cached version of the deployment script for command: -y --no-dot-deployment -r &quot;C:\local\Temp\zipdeploy\extracted&quot; -o &quot;C:\home\site\deployments\tools&quot; --node --sitePath &quot;C:\local\Temp\zipdeploy\extracted&quot;" date="2025-11-02T08:33:49.657" /><!-- duration: 0ms -->
+          <step title="Using cached version of deployment script (command: &apos;azure -y --no-dot-deployment -r &quot;C:\local\Temp\zipdeploy\extracted&quot; -o &quot;C:\home\site\deployments\tools&quot; --node --sitePath &quot;C:\local\Temp\zipdeploy\extracted&quot;&apos;)." date="2025-11-02T08:33:49.673" /><!-- duration: 0ms -->
+        </step><!-- duration: 359ms -->
+        <step title="Running deployment command..." date="2025-11-02T08:33:49.798" /><!-- duration: 0ms -->
+        <step title="Command: &quot;C:\home\site\deployments\tools\deploy.cmd&quot;" date="2025-11-02T08:33:49.830" /><!-- duration: 0ms -->
+        <step title="Executing external process" date="2025-11-02T08:33:49.909" type="process" path="starter.cmd" arguments="&quot;C:\home\site\deployments\tools\deploy.cmd&quot;" >
+          <step title="Handling node.js deployment." date="2025-11-02T08:33:51.266" /><!-- duration: 18ms -->
+          <step title="Creating app_offline.htm" date="2025-11-02T08:33:52.969" /><!-- duration: 16ms -->
+          <step title="KuduSync.NET from: &apos;C:\local\Temp\zipdeploy\extracted&apos; to: &apos;C:\home\site\wwwroot&apos;" date="2025-11-02T08:33:53.003" /><!-- duration: 13ms -->
+          <step title="Copying file: &apos;package-lock.json&apos;" date="2025-11-02T08:33:53.032" /><!-- duration: 18ms -->
+          <step title="Copying file: &apos;server.js&apos;" date="2025-11-02T08:33:53.079" /><!-- duration: 16ms -->
+          <step title="Deleting app_offline.htm" date="2025-11-02T08:33:53.113" /><!-- duration: 13ms -->
+          <step title="Using start-up script server.js from package.json." date="2025-11-02T08:33:54.770" /><!-- duration: 0ms -->
+          <step title="Node.js versions available on the platform are: 0.6.20, 0.8.2, 0.8.19, 0.8.26, 0.8.27, 0.8.28, 0.10.5, 0.10.18, 0.10.21, 0.10.24, 0.10.26, 0.10.28, 0.10.29, 0.10.31, 0.10.32, 0.10.40, 4.0.0, 4.1.0, 4.1.2, 4.2.1, 4.2.2, 4.2.3, 4.2.4, 4.3.0, 4.3.2, 4.4.0, 4.4.1, 4.4.6, 4.4.7, 4.5.0, 4.6.0, 4.6.1, 4.8.4, 4.9.1, 5.0.0, 5.1.1, 5.3.0, 5.4.0, 5.5.0, 5.6.0, 5.7.0, 5.7.1, 5.8.0, 5.9.1, 6.0.0, 6.1.0, 6.2.2, 6.3.0, 6.5.0, 6.6.0, 6.7.0, 6.9.0, 6.9.1, 6.9.2, 6.9.4, 6.9.5, 6.10.0, 6.10.3, 6.11.1, 6.11.2, 6.11.5, 6.12.2, 6.12.3, 6.17.1, 8.0.0, 8.1.4, 8.4.0, 8.5.0, 8.7.0, 8.8.0, 8.8.1, 8.9.0, 8.9.3, 8.9.4, 8.10.0, 8.11.1, 8.17.0, 10.0.0, 10.6.0, 10.14.1, 10.15.2, 10.16.3, 10.19.0, 10.24.1, 12.13.0, 12.15.0, 12.18.0, 12.21.0, 12.22.12, 14.10.1, 14.15.0, 14.15.1, 14.16.0, 14.18.1, 14.20.0, 16.9.1, 16.13.0, 16.16.0, 18.3.0, 18.12.1, 18.19.1, 18.20.4, 18.20.7, 20.9.0, 20.18.3, 20.19.4, 22.5.1, 22.14.0, 22.17.1." date="2025-11-02T08:33:55.110" /><!-- duration: 0ms -->
+          <step title="Selected node.js version 22.17.1. Use package.json file to choose a different version." date="2025-11-02T08:33:55.157" /><!-- duration: 0ms -->
+          <step title="Selected npm version 11.5.1" date="2025-11-02T08:33:55.188" /><!-- duration: 16ms -->
+          <step title="Updating iisnode.yml at C:\home\site\wwwroot\iisnode.yml" date="2025-11-02T08:33:55.221" /><!-- duration: 17ms -->
+          <step title="npm warn config production Use `--omit=dev` instead." date="2025-11-02T08:33:57.708" /><!-- duration: 0ms -->
+          <step title="up to date, audited 192 packages in 17s" date="2025-11-02T08:34:14.845" /><!-- duration: 0ms -->
+>
+          <step title="npm notice" date="2025-11-02T08:34:14.860" /><!-- duration: 17ms -->
+          <step title="37 packages are looking for funding" date="2025-11-02T08:34:14.877" >
+          <step title="npm notice New minor version of npm available! 11.5.1 -&gt; 11.6.2" date="2025-11-02T08:34:14.894" /><!-- duration: 16ms -->
+/><!-- duration: 13ms -->
+          <step title="  run `npm fund` for details" date="2025-11-02T08:34:14.927" /><!-- duration: 0ms -->
+          <step title="npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.2" date="2025-11-02T08:34:14.954" /><!-- duration: 31ms -->
+          <step title="found 0 vulnerabilities" date="2025-11-02T08:34:15.020" /><!-- duration: 28ms -->
+          <step title="npm notice To update run: npm install -g npm@11.6.2" date="2025-11-02T08:34:15.676" /><!-- duration: 62ms -->
+          <step title="npm notice" date="2025-11-02T08:34:15.766" /><!-- duration: 18ms -->
+          <step title="Finished successfully." date="2025-11-02T08:34:21.595" /><!-- duration: 16ms -->
+        </step><!-- duration: 31798ms -->
+        <step title="Running post deployment command(s)..." date="2025-11-02T08:34:21.829" /><!-- duration: 31ms -->
+        <step title="Triggering recycle (preview mode disabled)." date="2025-11-02T08:34:22.049" /><!-- duration: 0ms -->
+        <step title="Ignoring FS watcher based recycle request as this is a classic Windows app." date="2025-11-02T08:34:22.063" /><!-- duration: 20ms -->
+        <step title="Deployment successful. DEPLOYMENTINFO: deploymentPath = ZipDeploy. Extract zip. Remote build. , deployer = ZipDeploy, os = windows, sku = Basic, siteName = vishapii, siteHostName = vishapii.azurewebsites.net, deploymentStatus = Success" date="2025-11-02T08:34:22.501" /><!-- duration: 16ms -->
+      </step><!-- duration: 33672ms -->
+    </step><!-- duration: 34562ms -->
+    <step title="Cleaning up temp files" date="2025-11-02T08:34:22.923" /><!-- duration: 16ms -->
+    <step title="Skip function trigger and logicapp sync because function is not enabled." date="2025-11-02T08:34:22.989" /><!-- duration: 0ms -->
+  </step><!-- duration: 35439ms -->
+  <step title="LockFile &apos;C:\home\site\locks\deployments.lock&apos; released" date="2025-11-02T08:34:23.063" /><!-- duration: 16ms -->
+  <step title="Deleting shutdown sentinel file" date="2025-11-02T08:34:23.129" SemaphoreCount="8" /><!-- duration: 13ms -->
+</step><!-- duration: 36110ms -->
