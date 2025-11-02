@@ -31,6 +31,8 @@ export class ChatInterface extends LitElement {
       historySidebarOpen: { type: Boolean },
       chatSessions: { type: Array },
       currentChatId: { type: String },
+      toastMessage: { type: String },
+      showToast: { type: Boolean },
     };
   }
 
@@ -71,6 +73,10 @@ export class ChatInterface extends LitElement {
     this.userInfo = this._loadUserInfo();
     this.userDocuments = this._loadUserDocuments();
     this.isUploadingDoc = false;
+
+    // Toast notification
+    this.toastMessage = "";
+    this.showToast = false;
   }
 
   _generateSessionId() {
@@ -200,14 +206,12 @@ export class ChatInterface extends LitElement {
             <h1 class="app-title">Vish AI 💚</h1>
           </div>
           <div class="nav-right">
-            <label class="rag-toggle">
-              <input
-                type="checkbox"
-                ?checked=${this.ragEnabled}
-                @change=${this._toggleRag}
-              />
-              <span class="toggle-label">📚 Resources</span>
-            </label>
+            <button 
+              class="rag-toggle ${this.ragEnabled ? 'active' : ''}"
+              @click=${this._toggleRag}
+            >
+              📚 Resources
+            </button>
             <button class="clear-chat-btn" @click=${this._clearChat}>
               ➕ New Chat
             </button>
@@ -485,13 +489,31 @@ export class ChatInterface extends LitElement {
               ></div>
             `
           : ""}
+
+        <!-- Toast Notification -->
+        ${this.showToast
+          ? html`
+              <div class="toast-notification">
+                ${this.toastMessage}
+              </div>
+            `
+          : ""}
       </div>
     `;
   }
 
   // Event Handlers
   _toggleRag(e) {
-    this.ragEnabled = e.target.checked;
+    this.ragEnabled = !this.ragEnabled;
+    this._showToast(this.ragEnabled ? "📚 Resources Enabled" : "📚 Resources Disabled");
+  }
+
+  _showToast(message) {
+    this.toastMessage = message;
+    this.showToast = true;
+    setTimeout(() => {
+      this.showToast = false;
+    }, 1900);
   }
 
   _handleInput(e) {
