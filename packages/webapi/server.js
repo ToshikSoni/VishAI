@@ -7,60 +7,36 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import multer from "multer";
-import { AzureChatOpenAI } from "@langchain/openai";
 import { BufferMemory } from "langchain/memory";
 import { ChatMessageHistory } from "langchain/stores/message/in_memory";
 import { AzureOpenAI } from "openai";
 
-const sessionMemories = {};
-
 dotenv.config();
 
+// Initialize session memories storage
+const sessionMemories = {};
+
+// Initialize Express app
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Health check endpoints - Must be before other routes
-app.get("/", (req, res) => {
-  res.json({
-    status: "ok",
-    message: "Vish AI API is running!",
-    timestamp: new Date().toISOString(),
-    endpoints: ["/chat", "/chat-audio", "/upload-document", "/delete-document/:id", "/clear-memory", "/health"]
-  });
-});
-
-app.get("/health", (req, res) => {
-  const hasEnvVars = !!(
-    process.env.AZURE_INFERENCE_SDK_KEY &&
-    process.env.INSTANCE_NAME &&
-    process.env.DEPLOYMENT_NAME
-  );
-  
-  res.json({
-    status: hasEnvVars ? "healthy" : "unhealthy",
-    environment: {
-      hasApiKey: !!process.env.AZURE_INFERENCE_SDK_KEY,
-      hasInstanceName: !!process.env.INSTANCE_NAME,
-      hasDeploymentName: !!process.env.DEPLOYMENT_NAME,
-    },
-    timestamp: new Date().toISOString()
-  });
-});
-
+// Setup paths
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = path.resolve(__dirname, "../..");
 const mentalHealthDocsPath = path.join(
   projectRoot,
   "data/mental_health_resources"
-); // Directory for mental health PDFs
-
+);
 const userDocsPath = path.join(projectRoot, "data/user_documents");
-// Create user documents directory if it doesn't exist
-if (!fs.existsSync(userDocsPath)) {
-  fs.mkdirSync(userDocsPath, { recursive: true });
-}
+
+// Ensure directories exist
+[mentalHealthDocsPath, userDocsPath].forEach((dir) => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+});
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -68,9 +44,9 @@ const storage = multer.diskStorage({
     cb(null, userDocsPath);
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + '-' + file.originalname);
-  }
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + "-" + file.originalname);
+  },
 });
 
 const upload = multer({
@@ -78,15 +54,20 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
   fileFilter: (req, file, cb) => {
     const allowedTypes = /pdf|txt|doc|docx/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype) || file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-    
+    const extname = allowedTypes.test(
+      path.extname(file.originalname).toLowerCase()
+    );
+    const mimetype =
+      allowedTypes.test(file.mimetype) ||
+      file.mimetype ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
     if (extname && mimetype) {
       return cb(null, true);
     } else {
-      cb(new Error('Only PDF, TXT, DOC, and DOCX files are allowed'));
+      cb(new Error("Only PDF, TXT, DOC, and DOCX files are allowed"));
     }
-  }
+  },
 });
 
 // Crisis keywords to detect emergency situations
@@ -105,18 +86,7 @@ const crisisKeywords = [
   "take my own life",
 ];
 
-const chatModel = new AzureChatOpenAI({
-  azureOpenAIApiKey: process.env.AZURE_INFERENCE_SDK_KEY,
-  azureOpenAIApiInstanceName: process.env.INSTANCE_NAME,
-  azureOpenAIApiDeploymentName: process.env.DEPLOYMENT_NAME,
-  azureOpenAIApiVersion: "2024-08-01-preview",
-  temperature: 0.7,
-  maxTokens: 4096,
-  timeout: 60000, // 60 second timeout
-  maxRetries: 2, // Retry twice on failure
-});
-
-// Initialize Azure OpenAI client for GPT-4 Audio
+// Initialize Azure OpenAI client
 const audioClient = new AzureOpenAI({
   apiKey: process.env.AZURE_INFERENCE_SDK_KEY,
   endpoint: `https://${process.env.INSTANCE_NAME}.openai.azure.com/`,
@@ -124,25 +94,38 @@ const audioClient = new AzureOpenAI({
   deployment: process.env.DEPLOYMENT_NAME,
 });
 
-let mentalHealthTexts = {};
-let mentalHealthChunks = {};
+// Constants
 const CHUNK_SIZE = 800;
 
-// Function to check if text contains crisis indicators
+// Storage for processed documents
+let mentalHealthChunks = {};
+
+// Helper Functions
 function containsCrisisLanguage(text) {
   const textLower = text.toLowerCase();
   return crisisKeywords.some((keyword) => textLower.includes(keyword));
 }
 
+function chunkText(text) {
+  const chunks = [];
+  let currentChunk = "";
+  const words = text.split(/\s+/);
+
+  for (const word of words) {
+    if ((currentChunk + " " + word).length <= CHUNK_SIZE) {
+      currentChunk += (currentChunk ? " " : "") + word;
+    } else {
+      if (currentChunk) chunks.push(currentChunk);
+      currentChunk = word;
+    }
+  }
+  if (currentChunk) chunks.push(currentChunk);
+
+  return chunks;
+}
+
 async function loadMentalHealthPDFs() {
   try {
-    // Create directory if it doesn't exist
-    if (!fs.existsSync(mentalHealthDocsPath)) {
-      fs.mkdirSync(mentalHealthDocsPath, { recursive: true });
-      console.log(`Created directory: ${mentalHealthDocsPath}`);
-      return {};
-    }
-
     const files = fs
       .readdirSync(mentalHealthDocsPath)
       .filter((file) => file.endsWith(".pdf"));
@@ -154,39 +137,19 @@ async function loadMentalHealthPDFs() {
       const filePath = path.join(mentalHealthDocsPath, file);
       const dataBuffer = fs.readFileSync(filePath);
       const data = await pdfParse(dataBuffer);
-
-      mentalHealthTexts[file] = data.text;
-      mentalHealthChunks[file] = [];
-
-      let currentChunk = "";
-      const words = data.text.split(/\s+/);
-
-      for (const word of words) {
-        if ((currentChunk + " " + word).length <= CHUNK_SIZE) {
-          currentChunk += (currentChunk ? " " : "") + word;
-        } else {
-          mentalHealthChunks[file].push(currentChunk);
-          currentChunk = word;
-        }
-      }
-      if (currentChunk) mentalHealthChunks[file].push(currentChunk);
+      mentalHealthChunks[file] = chunkText(data.text);
     }
 
-    return mentalHealthTexts;
+    console.log("Mental health resources loaded successfully");
   } catch (error) {
     console.error("Error loading mental health PDFs:", error);
-    return {};
   }
 }
 
-// Initialize by loading PDFs
-loadMentalHealthPDFs()
-  .then(() => {
-    console.log("Mental health resources loaded successfully");
-  })
-  .catch((err) => {
-    console.error("Failed to load mental health resources:", err);
-  });
+// Load mental health resources on startup
+loadMentalHealthPDFs().catch((err) => {
+  console.error("Failed to load mental health resources:", err);
+});
 
 async function retrieveRelevantContent(query, includeUserDocs = true) {
   const queryTerms = query
@@ -197,10 +160,11 @@ async function retrieveRelevantContent(query, includeUserDocs = true) {
 
   if (queryTerms.length === 0) return [];
 
-  // Flatten all chunks from mental health documents
   const allChunksWithSources = [];
-  Object.keys(mentalHealthChunks).forEach((fileName) => {
-    mentalHealthChunks[fileName].forEach((chunk) => {
+
+  // Add mental health resource chunks
+  Object.entries(mentalHealthChunks).forEach(([fileName, chunks]) => {
+    chunks.forEach((chunk) => {
       allChunksWithSources.push({ chunk, source: `[Resource] ${fileName}` });
     });
   });
@@ -208,89 +172,58 @@ async function retrieveRelevantContent(query, includeUserDocs = true) {
   // Add user documents if requested
   if (includeUserDocs) {
     try {
-      const userFiles = fs.readdirSync(userDocsPath).filter(file => 
-        file.endsWith('.pdf') || file.endsWith('.txt')
-      );
-      
-      console.log(`📄 Found ${userFiles.length} user document(s) to process`);
-      
+      const userFiles = fs
+        .readdirSync(userDocsPath)
+        .filter((file) => file.endsWith(".pdf") || file.endsWith(".txt"));
+
+      if (userFiles.length > 0) {
+        console.log(`📄 Processing ${userFiles.length} user document(s)`);
+      }
+
       for (const file of userFiles) {
         const filePath = path.join(userDocsPath, file);
-        const originalName = file.split('-').slice(2).join('-'); // Remove timestamp prefix
-        
-        if (file.endsWith('.pdf')) {
-          try {
-            console.log(`📖 Processing user PDF: ${originalName}`);
+        const originalName = file.split("-").slice(2).join("-");
+
+        try {
+          let text;
+          if (file.endsWith(".pdf")) {
             const dataBuffer = fs.readFileSync(filePath);
             const data = await pdfParse(dataBuffer);
-            const text = data.text;
-            
-            // Chunk the user document
-            const chunks = [];
-            let currentChunk = "";
-            const words = text.split(/\s+/);
-            
-            for (const word of words) {
-              if ((currentChunk + " " + word).length <= CHUNK_SIZE) {
-                currentChunk += (currentChunk ? " " : "") + word;
-              } else {
-                chunks.push(currentChunk);
-                currentChunk = word;
-              }
-            }
-            if (currentChunk) chunks.push(currentChunk);
-            
-            console.log(`✅ Loaded ${chunks.length} chunks from PDF: ${originalName}`);
-            
-            chunks.forEach(chunk => {
-              allChunksWithSources.push({ chunk, source: `[Your Document] ${originalName}` });
-            });
-          } catch (err) {
-            console.error(`Error reading user PDF ${file}:`, err);
+            text = data.text;
+          } else if (file.endsWith(".txt")) {
+            text = fs.readFileSync(filePath, "utf-8");
           }
-        } else if (file.endsWith('.txt')) {
-          try {
-            console.log(`📄 Processing user TXT: ${originalName}`);
-            const text = fs.readFileSync(filePath, 'utf-8');
-            
-            // Chunk the text file
-            const chunks = [];
-            let currentChunk = "";
-            const words = text.split(/\s+/);
-            
-            for (const word of words) {
-              if ((currentChunk + " " + word).length <= CHUNK_SIZE) {
-                currentChunk += (currentChunk ? " " : "") + word;
-              } else {
-                chunks.push(currentChunk);
-                currentChunk = word;
-              }
-            }
-            if (currentChunk) chunks.push(currentChunk);
-            
-            console.log(`✅ Loaded ${chunks.length} chunks from TXT: ${originalName}`);
-            
-            chunks.forEach(chunk => {
-              allChunksWithSources.push({ chunk, source: `[Your Document] ${originalName}` });
+
+          if (text) {
+            const chunks = chunkText(text);
+            console.log(
+              `✅ Loaded ${chunks.length} chunks from: ${originalName}`
+            );
+
+            chunks.forEach((chunk) => {
+              allChunksWithSources.push({
+                chunk,
+                source: `[Your Document] ${originalName}`,
+              });
             });
-          } catch (err) {
-            console.error(`Error reading user TXT ${file}:`, err);
           }
+        } catch (err) {
+          console.error(`Error reading ${file}:`, err);
         }
       }
     } catch (err) {
-      console.error('Error loading user documents:', err);
+      console.error("Error loading user documents:", err);
     }
   }
 
+  // Score and rank chunks
   const scoredChunks = allChunksWithSources.map((item) => {
     const chunkLower = item.chunk.toLowerCase();
     let score = 0;
-    for (const term of queryTerms) {
-      const regex = new RegExp(term, "gi");
-      const matches = chunkLower.match(regex);
+    queryTerms.forEach((term) => {
+      const matches = chunkLower.match(new RegExp(term, "gi"));
       if (matches) score += matches.length;
-    }
+    });
     return { ...item, score };
   });
 
@@ -298,17 +231,13 @@ async function retrieveRelevantContent(query, includeUserDocs = true) {
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 3)
-    .map((item) => ({
-      content: item.chunk,
-      source: item.source,
-    }));
+    .map((item) => ({ content: item.chunk, source: item.source }));
 }
 
 function getSessionMemory(sessionId) {
   if (!sessionMemories[sessionId]) {
-    const history = new ChatMessageHistory();
     sessionMemories[sessionId] = new BufferMemory({
-      chatHistory: history,
+      chatHistory: new ChatMessageHistory(),
       returnMessages: true,
       memoryKey: "chat_history",
     });
@@ -316,199 +245,328 @@ function getSessionMemory(sessionId) {
   return sessionMemories[sessionId];
 }
 
-app.post("/chat", async (req, res) => {
-  const userMessage = req.body.message;
-  const useRAG = req.body.useRAG === undefined ? true : req.body.useRAG;
-  const sessionId = req.body.sessionId || "default";
-  const rawMode =
-    typeof req.body.mode === "string" ? req.body.mode.toLowerCase() : "chat";
-  const talkMode = rawMode === "talk";
-  const userInfo = req.body.userInfo || null;
+function buildUserContext(userInfo) {
+  if (!userInfo) return "";
 
-  let sources = [];
-  let isCrisis = containsCrisisLanguage(userMessage);
+  let context = "\n\n[User Information for Context]:\n";
 
-  const memory = getSessionMemory(sessionId);
-  const memoryVars = await memory.loadMemoryVariables({});
+  if (userInfo.name) context += `- Name: ${userInfo.name}\n`;
+  if (userInfo.age) context += `- Age: ${userInfo.age}\n`;
+  if (userInfo.gender) context += `- Gender: ${userInfo.gender}\n`;
+  if (userInfo.pronouns)
+    context += `- Preferred Pronouns: ${userInfo.pronouns}\n`;
 
-  if (useRAG) {
-    sources = await retrieveRelevantContent(userMessage);
+  if (userInfo.occupationType === "student") {
+    context += "- Occupation: Student\n";
+    if (userInfo.course) context += `- Course: ${userInfo.course}\n`;
+    if (userInfo.branch)
+      context += `- Branch/Specialization: ${userInfo.branch}\n`;
+  } else if (userInfo.occupationType === "working") {
+    context += "- Occupation: Working Professional\n";
+    if (userInfo.jobTitle) context += `- Job Title: ${userInfo.jobTitle}\n`;
+    if (userInfo.organization)
+      context += `- Organization: ${userInfo.organization}\n`;
   }
 
-  // Build user context string if user info is provided
-  let userContext = '';
-  if (userInfo) {
-    userContext = '\n\n[User Information for Context]:\n';
-    if (userInfo.name) userContext += `- Name: ${userInfo.name}\n`;
-    if (userInfo.age) userContext += `- Age: ${userInfo.age}\n`;
-    if (userInfo.gender) userContext += `- Gender: ${userInfo.gender}\n`;
-    if (userInfo.pronouns) userContext += `- Preferred Pronouns: ${userInfo.pronouns}\n`;
-    if (userInfo.occupationType === 'student') {
-      userContext += '- Occupation: Student\n';
-      if (userInfo.course) userContext += `- Course: ${userInfo.course}\n`;
-      if (userInfo.branch) userContext += `- Branch/Specialization: ${userInfo.branch}\n`;
-    } else if (userInfo.occupationType === 'working') {
-      userContext += '- Occupation: Working Professional\n';
-      if (userInfo.jobTitle) userContext += `- Job Title: ${userInfo.jobTitle}\n`;
-      if (userInfo.organization) userContext += `- Organization: ${userInfo.organization}\n`;
-    }
-    if (userInfo.currentMood) {
-      userContext += `- Current Emotional State: ${userInfo.currentMood}\n`;
-    }
-    if (userInfo.concerns) {
-      userContext += `- Primary Concerns/Goals: ${userInfo.concerns}\n`;
-    }
-    if (userInfo.communicationStyle) {
-      userContext += `- Preferred Communication Style: ${userInfo.communicationStyle}\n`;
-    }
-    if (userInfo.previousTherapy) {
-      userContext += `- Therapy Experience: ${userInfo.previousTherapy}\n`;
-    }
-    if (userInfo.preferredRole) {
-      userContext += `- Preferred Interaction Style: ${userInfo.preferredRole}\n`;
-    }
-    if (userInfo.aboutMe) userContext += `- About: ${userInfo.aboutMe}\n`;
-    userContext += '\nUse this information naturally and adapt your responses to their preferences. Be especially mindful of their emotional state and communication style. Interact with the user in the manner they prefer (as indicated by their preferred interaction style). Use their preferred pronouns consistently.\n';
-  }
+  if (userInfo.currentMood)
+    context += `- Current Emotional State: ${userInfo.currentMood}\n`;
+  if (userInfo.concerns)
+    context += `- Primary Concerns/Goals: ${userInfo.concerns}\n`;
+  if (userInfo.communicationStyle)
+    context += `- Preferred Communication Style: ${userInfo.communicationStyle}\n`;
+  if (userInfo.previousTherapy)
+    context += `- Therapy Experience: ${userInfo.previousTherapy}\n`;
+  if (userInfo.preferredRole)
+    context += `- Preferred Interaction Style: ${userInfo.preferredRole}\n`;
+  if (userInfo.aboutMe) context += `- About: ${userInfo.aboutMe}\n`;
 
-  // Prepare system prompt with special handling for crisis situations
+  context +=
+    "\nUse this information naturally and adapt your responses to their preferences. Be especially mindful of their emotional state and communication style. Interact with the user in the manner they prefer (as indicated by their preferred interaction style). Use their preferred pronouns consistently.\n";
+
+  return context;
+}
+
+function buildSystemPrompt(
+  isCrisis,
+  useRAG,
+  sources,
+  userContext,
+  additionalInstructions = ""
+) {
   let systemContent;
-  const talkModeCue = talkMode
-    ? `Respond as if you are speaking aloud. Keep replies warm, conversational, and concise (no more than three short sentences). Invite the person to continue sharing rather than delivering long monologues.`
-    : "";
 
   if (isCrisis) {
-    systemContent = `You are a compassionate mental health support assistant speaking to someone in crisis. 
-This person may be having thoughts of suicide or self-harm based on their message. 
-Your priority is their safety. Respond with empathy and care. 
-Remind them that help is available and they're not alone.
-Suggest contacting a crisis hotline (988 in the US) or emergency services if they are in immediate danger.
-DO NOT downplay their feelings or use clichés like "it gets better" or "just think positive."
-Acknowledge their pain while gently encouraging them to seek professional help.${userContext}`;
+    systemContent = `You are Vish, a compassionate AI mental health support companion, and you're speaking with someone who is in crisis right now. This person may be experiencing thoughts of suicide or self-harm.
+
+YOUR IMMEDIATE PRIORITY: Their safety and wellbeing.
+
+WHAT YOU MUST DO:
+- Acknowledge their pain without minimizing it. Say things like "I hear you" or "That sounds incredibly difficult"
+- Validate their feelings: "What you're feeling is real and it matters"
+- Remind them they are NOT alone and that help IS available
+- Strongly encourage them to contact crisis support immediately:
+  • Call or text 988 (US Suicide & Crisis Lifeline) - Free, confidential, 24/7
+  • Text HOME to 741741 (Crisis Text Line)
+  • Call 911 or local emergency services if in immediate danger
+- If they're hesitant, help them take the first step: "Could you call 988 right now? I'll be here, but they have trained counselors who can help you through this moment"
+
+WHAT YOU MUST NOT DO:
+- Never use toxic positivity like "just think positive" or "it gets better" or "others have it worse"
+- Never tell them to "just try to be happy" or similar dismissive phrases
+- Never provide step-by-step solutions as if mental health crisis is a simple problem to solve
+- Never act like you can replace professional crisis intervention
+
+REMEMBER: You are an AI language model, not a crisis counselor or therapist. Your role is to provide immediate emotional support while strongly encouraging them to reach out to professional crisis services who are trained and equipped to help them through this critical moment.
+
+FORMAT YOUR RESPONSES:
+- Use markdown formatting (bold, lists, etc.) to make resources clearly visible
+- Keep responses warm but structured
+- Make crisis hotline numbers **bold** and prominent
+
+SPECIAL FEATURES YOU HAVE:
+- You can communicate via text or voice (audio input/output available)
+- You have access to their personal information they shared, which helps you understand them better
+- They can upload documents for context (medical records, journal entries, etc.)
+- You maintain conversation history across multiple chat sessions${userContext}`;
   } else if (useRAG && sources.length > 0) {
     const sourcesText = sources.map((s) => s.content).join("\n\n");
-    systemContent = `You are a supportive and compassionate mental health assistant.
-Use the information provided below to help answer the user's question with empathy and care.
-Remember to always prioritize the person's wellbeing and never give harmful advice.
+    systemContent = `You are Vish, a supportive and empathetic AI mental health companion designed to provide a safe space for people navigating their mental health journey.
 
---- MENTAL HEALTH RESOURCES ---
+YOUR CORE PURPOSE:
+You exist to be someone the user can trust and talk to during their difficult times - a consistent, non-judgmental presence when they need support. You're here to listen, validate, and guide them toward practical steps they can take.
+
+HOW TO HELP EFFECTIVELY:
+- VALIDATE first: Acknowledge what they're feeling before offering any guidance
+- BE PRACTICAL: Provide actionable steps they can take right now (breathing exercises, grounding techniques, reaching out to someone, etc.)
+- GUIDE, DON'T FIX: Help them explore what might help them, rather than prescribing solutions
+- ENCOURAGE ACTION: Gently motivate them to take small, manageable steps forward
+- Example: Instead of "Don't be sad," say "It sounds like you're going through a really tough time. Sometimes when I'm working with people feeling this way, breaking things into small steps helps. What's one tiny thing that might feel a bit more manageable right now?"
+
+RESOURCES AVAILABLE TO YOU:
+Below are relevant excerpts from mental health resources and/or documents the user has uploaded. Use these to provide informed, evidence-based guidance while maintaining your empathetic approach.
+
+--- MENTAL HEALTH RESOURCES & USER DOCUMENTS ---
 ${sourcesText}
---- END OF RESOURCES ---${userContext}`;
+--- END OF RESOURCES ---
+
+YOUR SPECIAL CAPABILITIES:
+- **Audio Communication**: You can receive voice input and generate natural voice responses for a more conversational experience
+- **User Context**: You have access to personal information the user shared (age, occupation, preferences, emotional state, etc.) - use it naturally to personalize your support
+- **Document Integration**: You can reference and use information from documents they've uploaded (therapy notes, journal entries, etc.)
+- **Conversation History**: You maintain memory across multiple chat sessions so they don't have to repeat themselves
+- **Markdown Formatting**: Use markdown (bold, italics, lists, headings) to structure your responses clearly and make them easy to read
+
+IMPORTANT LIMITATIONS:
+- You are an AI language model - a supportive companion, NOT a replacement for professional mental health care
+- Always acknowledge when something requires professional help: "This sounds like something that would really benefit from talking to a therapist who can work with you over time"
+- Encourage professional support for: persistent symptoms, medication questions, diagnosis, complex trauma, ongoing suicidal ideation
+- Never provide medical advice or suggest stopping/starting medications
+
+FORMAT YOUR RESPONSES:
+- Use markdown to organize information (lists, bold for emphasis, etc.)
+- Break longer responses into digestible sections
+- Use empathetic, conversational language
+- Keep the focus on THEM and what might help THEM specifically${userContext}`;
   } else {
-    systemContent = `You are a supportive and compassionate mental health assistant. 
-Your goal is to provide a safe space for people to discuss their mental health concerns.
-Respond with empathy, validation, and understanding.
-Never give medical advice; instead, encourage seeking professional help when appropriate.
-If you don't know something, it's better to acknowledge that than to provide potentially harmful information.
-Always prioritize the person's wellbeing in your responses.${userContext}`;
+    systemContent = `You are Vish, a compassionate AI mental health companion. You provide a safe, judgment-free space where people can talk about their mental health, struggles, and emotions - especially during their darkest times.
+
+YOUR CORE MISSION:
+To be someone the user can genuinely trust and rely on when they need emotional support. You're not here to fix them or solve their problems, but to listen, validate, and help them find their own path forward with practical guidance and encouragement.
+
+HOW TO PROVIDE MEANINGFUL SUPPORT:
+1. **Listen & Validate First**: Before offering any advice, show you understand
+   - "That sounds incredibly overwhelming"
+   - "I can hear how much pain you're in right now"
+   - "What you're feeling makes complete sense given what you're going through"
+
+2. **Guide Practically, Don't Just Sympathize**: Help them take action
+   - BAD: "Don't feel sad" or "Try to stay positive" or "It'll get better"
+   - GOOD: "When you're feeling this overwhelmed, sometimes it helps to focus on just the next hour. What's one small thing you could do right now that might help you feel even slightly more grounded? Maybe a glass of water, stepping outside for a moment, or texting a friend?"
+
+3. **Encourage Small Steps**: Break things down into manageable pieces
+   - "That's a lot to tackle at once. What feels like the most urgent thing right now?"
+   - "You don't have to have it all figured out. What's one tiny step forward?"
+
+4. **Empower, Don't Enable**: Support their agency and growth
+   - Help them identify their own strengths
+   - Remind them of times they've gotten through hard things before
+   - Encourage reaching out to their support system
+
+5. **Know When to Refer**: Be honest about your limitations
+   - For persistent symptoms, suicidal ideation, trauma, or medication questions: "This is something that would really benefit from working with a mental health professional. They have the training and tools to help you with this in ways I can't as an AI."
+   - Make it clear: You're a supportive companion, but you cannot replace therapy, counseling, or psychiatric care
+
+YOUR SPECIAL CAPABILITIES:
+- **Audio Interaction**: Users can speak to you and hear your responses in natural voice, making conversations feel more personal and accessible
+- **Personalized Context**: You have access to information users share about themselves (preferences, background, emotional state, goals) - reference this naturally to show you remember and care about them as an individual
+- **Document Understanding**: Users can upload documents (journals, therapy notes, medical records) and you can reference them to provide more contextual support
+- **Conversation Memory**: You remember previous conversations across multiple chat sessions - they don't need to repeat their story
+- **Rich Formatting**: Use markdown (bold, italics, lists, headers, etc.) to make your responses clear, structured, and easy to follow
+
+SPECIAL CONSIDERATIONS FOR SERIOUS SITUATIONS:
+You're designed to handle conversations about depression, anxiety, suicidal thoughts, and self-harm with care and wisdom:
+- Depression isn't about "not trying hard enough" - validate the weight of what they're carrying
+- Suicidal thoughts are a symptom, not a character flaw - treat them seriously without panic
+- Self-harm often serves as a coping mechanism - approach with curiosity and compassion, not judgment
+- For active crisis or self-harm urges: Strongly encourage calling 988 (Suicide & Crisis Lifeline) or texting HOME to 741741
+
+YOUR LIMITATIONS (Be Transparent):
+- You are an AI - a sophisticated language model, not a human therapist or crisis counselor
+- You cannot provide medical advice, diagnose conditions, or prescribe treatments
+- You cannot replace professional mental health care, though you can complement it
+- In genuine emergencies, human professionals (988, 911, therapists) are always the right call
+
+FORMAT YOUR COMMUNICATION:
+- Use markdown formatting to organize thoughts clearly (bold for emphasis, bullets for lists, etc.)
+- Match the user's preferred communication style (they can set this in their profile)
+- Be conversational and warm, not clinical or robotic
+- Keep responses focused and digestible - not overwhelming walls of text${userContext}`;
   }
 
-  if (talkModeCue) {
-    systemContent = `${systemContent}\n\n${talkModeCue}`;
+  if (additionalInstructions) {
+    systemContent = `${systemContent}\n\n${additionalInstructions}`;
   }
 
-  const systemMessage = {
-    role: "system",
-    content: systemContent,
-  };
+  return systemContent;
+}
 
+function buildMessages(systemContent, memoryVars, userMessage) {
+  return [
+    { role: "system", content: systemContent },
+    ...(memoryVars.chat_history || []).map((msg) => {
+      let role = msg._getType ? msg._getType() : msg.role;
+      if (role === "human") role = "user";
+      if (role === "ai") role = "assistant";
+      return { role, content: msg.content };
+    }),
+    { role: "user", content: userMessage },
+  ];
+}
+
+function getCrisisResources() {
+  return [
+    { name: "National Suicide Prevention Lifeline", contact: "988" },
+    { name: "Crisis Text Line", contact: "Text HOME to 741741" },
+    {
+      name: "International Association for Suicide Prevention",
+      url: "https://www.iasp.info/resources/Crisis_Centres/",
+    },
+  ];
+}
+
+// API Endpoints
+
+app.get("/", (req, res) => {
+  res.json({
+    status: "ok",
+    message: "Vish AI API is running!",
+    timestamp: new Date().toISOString(),
+    endpoints: [
+      "/chat",
+      "/chat-audio",
+      "/upload-document",
+      "/delete-document/:id",
+      "/clear-memory",
+      "/health",
+    ],
+  });
+});
+
+app.get("/health", (req, res) => {
+  const hasEnvVars = !!(
+    process.env.AZURE_INFERENCE_SDK_KEY &&
+    process.env.INSTANCE_NAME &&
+    process.env.DEPLOYMENT_NAME
+  );
+
+  res.json({
+    status: hasEnvVars ? "healthy" : "unhealthy",
+    environment: {
+      hasApiKey: !!process.env.AZURE_INFERENCE_SDK_KEY,
+      hasInstanceName: !!process.env.INSTANCE_NAME,
+      hasDeploymentName: !!process.env.DEPLOYMENT_NAME,
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.post("/chat", async (req, res) => {
   try {
-    // Build final messages array with proper role mapping
-    const messages = [
-      systemMessage,
-      ...(memoryVars.chat_history || []).map(msg => {
-        let role = msg._getType ? msg._getType() : msg.role;
-        // Fix LangChain role names to OpenAI API format
-        if (role === 'human') role = 'user';
-        if (role === 'ai') role = 'assistant';
-        return {
-          role: role,
-          content: msg.content
-        };
-      }),
-      { role: "user", content: userMessage },
-    ];
+    const {
+      message: userMessage,
+      useRAG = true,
+      sessionId = "default",
+      mode = "chat",
+      userInfo = null,
+    } = req.body;
+    const talkMode = mode.toLowerCase() === "talk";
 
-    console.log(`📝 Chat context for session ${sessionId}:`, messages.length, 'messages');
+    const memory = getSessionMemory(sessionId);
+    const memoryVars = await memory.loadMemoryVariables({});
 
-    // Use OpenAI client for text-only mode (gpt-audio requires modalities even for text)
+    const isCrisis = containsCrisisLanguage(userMessage);
+    const sources = useRAG ? await retrieveRelevantContent(userMessage) : [];
+
+    const userContext = buildUserContext(userInfo);
+    const talkModeCue = talkMode
+      ? `Respond as if you are speaking aloud. Keep replies warm, conversational, and concise (no more than three short sentences). Invite the person to continue sharing rather than delivering long monologues.`
+      : "";
+
+    const systemContent = buildSystemPrompt(
+      isCrisis,
+      useRAG,
+      sources,
+      userContext,
+      talkModeCue
+    );
+    const messages = buildMessages(systemContent, memoryVars, userMessage);
+
+    console.log(
+      `📝 Chat context for session ${sessionId}:`,
+      messages.length,
+      "messages"
+    );
+
     const completion = await audioClient.chat.completions.create({
       model: process.env.DEPLOYMENT_NAME,
-      messages: messages,
+      messages,
       max_tokens: 4096,
       temperature: 0.7,
       modalities: ["text", "audio"],
-      audio: { 
-        voice: "sage",
-        format: "mp3" 
-      },
+      audio: { voice: "sage", format: "mp3" },
     });
 
-    // Extract text from either content or audio.transcript
     const message = completion.choices[0]?.message;
     const responseText = message?.content || message?.audio?.transcript || "";
 
     console.log(`📝 Text chat response - Text length: ${responseText.length}`);
 
-    await memory.saveContext(
-      { input: userMessage },
-      { output: responseText }
-    );
+    await memory.saveContext({ input: userMessage }, { output: responseText });
 
     res.json({
       reply: responseText,
       sources: sources.map((s) => s.content),
-      isCrisis: isCrisis,
-      resources: isCrisis
-        ? [
-            { name: "National Suicide Prevention Lifeline", contact: "988" },
-            { name: "Crisis Text Line", contact: "Text HOME to 741741" },
-            {
-              name: "International Association for Suicide Prevention",
-              url: "https://www.iasp.info/resources/Crisis_Centres/",
-            },
-          ]
-        : [],
+      isCrisis,
+      resources: isCrisis ? getCrisisResources() : [],
     });
   } catch (err) {
-    console.error('============ ERROR IN /CHAT ENDPOINT ============');
-    console.error('Error object:', err);
-    console.error('Error stack:', err.stack);
-    console.error('Error details:', {
-      name: err.name,
-      message: err.message,
-      status: err.status,
-      code: err.code,
-      response: err.response?.data
-    });
-    console.error('Environment check:', {
-      hasApiKey: !!process.env.AZURE_INFERENCE_SDK_KEY,
-      hasInstance: !!process.env.INSTANCE_NAME,
-      hasDeployment: !!process.env.DEPLOYMENT_NAME,
-      instanceName: process.env.INSTANCE_NAME,
-      deploymentName: process.env.DEPLOYMENT_NAME
-    });
-    console.error('=================================================');
+    console.error("============ ERROR IN /CHAT ENDPOINT ============");
+    console.error("Error:", err.message);
+    console.error("Stack:", err.stack);
+    console.error("=================================================");
 
-    // Handle content filter errors specifically
-    if (err.code === 'content_filter' || err.status === 400) {
-      // Still provide crisis support even when content is filtered
-      const crisisResponse = isCrisis 
-        ? "I can hear that you're going through a really difficult time right now. Your safety is what matters most. Please reach out to a crisis counselor who can provide immediate support:\n\n• Call or text **988** (US Suicide & Crisis Lifeline)\n• Text HOME to **741741** (Crisis Text Line)\n• Call **911** if you're in immediate danger\n\nThese services are free, confidential, and available 24/7. You don't have to face this alone."
-        : "I'm here to support you, but I need to be careful with how I respond. If you're in crisis or having thoughts of self-harm, please contact:\n\n• **988** (US Suicide & Crisis Lifeline)\n• Text HOME to **741741** (Crisis Text Line)\n\nThey have trained counselors available 24/7 who can help.";
+    const isCrisis = containsCrisisLanguage(req.body.message || "");
+
+    if (err.code === "content_filter" || err.status === 400) {
+      const crisisResponse = isCrisis
+        ? "**[Auto-Generated Safety Response]**\n\nI can hear that you're going through a really difficult time right now. Due to content safety filters, I'm currently unable to respond directly to your message, but your safety is what matters most.\n\n**Please reach out to a crisis counselor immediately:**\n• Call or text **988** (US Suicide & Crisis Lifeline)\n• Text HOME to **741741** (Crisis Text Line)\n• Call **911** if you're in immediate danger\n\nThese services have trained professionals available 24/7 who can provide the immediate support you need. You don't have to face this alone.\n\n*Note: This is an automated safety message because my AI capabilities are currently limited in responding to crisis situations. Please seek human support right away.*"
+        : "**[Auto-Generated Response]**\n\nI apologize, but I'm unable to respond to your message directly due to content safety filters. This is an automated message to let you know that my AI capabilities have limitations in certain situations.\n\nIf you're experiencing a mental health crisis or having thoughts of self-harm, please contact:\n• **988** (US Suicide & Crisis Lifeline)\n• Text HOME to **741741** (Crisis Text Line)\n\nFor general support, you might try rephrasing your message, or reach out to a mental health professional who can provide the help you need.\n\n*This is an automated safety response - I'm currently not able to assist with this particular request.*";
 
       return res.json({
         reply: crisisResponse,
         sources: [],
-        isCrisis: isCrisis,
-        resources: isCrisis ? [
-          { name: "National Suicide Prevention Lifeline", contact: "988" },
-          { name: "Crisis Text Line", contact: "Text HOME to 741741" },
-          {
-            name: "International Association for Suicide Prevention",
-            url: "https://www.iasp.info/resources/Crisis_Centres/",
-          },
-        ] : [],
+        isCrisis,
+        resources: isCrisis ? getCrisisResources() : [],
       });
     }
 
@@ -516,26 +574,25 @@ Always prioritize the person's wellbeing in your responses.${userContext}`;
       error: "Model call failed",
       message: err.message,
       reply:
-        "I'm sorry, I encountered a problem. If you're in crisis, please call 988 (US) or your local emergency number immediately.",
+        "**[System Error]**\n\nI'm sorry, I encountered a technical problem and cannot respond right now. This is an automated error message.\n\nIf you're in crisis, please call **988** (US) or your local emergency number immediately for professional help.\n\n*This is an automated response due to a system error.*",
     });
   }
 });
 
-// Endpoint to upload user documents
-app.post("/upload-document", upload.single('document'), async (req, res) => {
+app.post("/upload-document", upload.single("document"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
-    const fileId = req.file.filename.split('-')[0] + '-' + req.file.filename.split('-')[1];
-    
+    const fileId = req.file.filename.split("-").slice(0, 2).join("-");
+
     res.json({
       success: true,
       id: fileId,
       name: req.file.originalname,
       path: req.file.path,
-      size: req.file.size
+      size: req.file.size,
     });
   } catch (error) {
     console.error("Error uploading document:", error);
@@ -543,12 +600,10 @@ app.post("/upload-document", upload.single('document'), async (req, res) => {
   }
 });
 
-// Endpoint to delete user documents
 app.delete("/delete-document/:id", async (req, res) => {
   try {
-    const docId = req.params.id;
     const files = fs.readdirSync(userDocsPath);
-    const fileToDelete = files.find(file => file.startsWith(docId));
+    const fileToDelete = files.find((file) => file.startsWith(req.params.id));
 
     if (fileToDelete) {
       fs.unlinkSync(path.join(userDocsPath, fileToDelete));
@@ -562,217 +617,107 @@ app.delete("/delete-document/:id", async (req, res) => {
   }
 });
 
-// Endpoint to clear session memory
 app.post("/clear-memory", (req, res) => {
   const sessionId = req.body.sessionId || "default";
-  if (sessionMemories[sessionId]) {
-    delete sessionMemories[sessionId];
-    res.json({ success: true, message: "Memory cleared successfully" });
-  } else {
-    res.json({ success: true, message: "No memory found for this session" });
-  }
+  delete sessionMemories[sessionId];
+  res.json({ success: true, message: "Memory cleared successfully" });
 });
 
-// New endpoint for GPT-4 Audio chat
 app.post("/chat-audio", async (req, res) => {
-  const userMessage = req.body.message;
-  const useRAG = req.body.useRAG === undefined ? true : req.body.useRAG;
-  const sessionId = req.body.sessionId || "default";
-  const userInfo = req.body.userInfo || null;
-
-  let sources = [];
-  let isCrisis = containsCrisisLanguage(userMessage);
-
-  const memory = getSessionMemory(sessionId);
-  const memoryVars = await memory.loadMemoryVariables({});
-
-  if (useRAG) {
-    sources = await retrieveRelevantContent(userMessage);
-  }
-
-  // Build user context string if user info is provided
-  let userContext = '';
-  if (userInfo) {
-    userContext = '\n\n[User Information for Context]:\n';
-    if (userInfo.name) userContext += `- Name: ${userInfo.name}\n`;
-    if (userInfo.age) userContext += `- Age: ${userInfo.age}\n`;
-    if (userInfo.gender) userContext += `- Gender: ${userInfo.gender}\n`;
-    if (userInfo.pronouns) userContext += `- Preferred Pronouns: ${userInfo.pronouns}\n`;
-    if (userInfo.occupationType === 'student') {
-      userContext += '- Occupation: Student\n';
-      if (userInfo.course) userContext += `- Course: ${userInfo.course}\n`;
-      if (userInfo.branch) userContext += `- Branch/Specialization: ${userInfo.branch}\n`;
-    } else if (userInfo.occupationType === 'working') {
-      userContext += '- Occupation: Working Professional\n';
-      if (userInfo.jobTitle) userContext += `- Job Title: ${userInfo.jobTitle}\n`;
-      if (userInfo.organization) userContext += `- Organization: ${userInfo.organization}\n`;
-    }
-    if (userInfo.currentMood) {
-      userContext += `- Current Emotional State: ${userInfo.currentMood}\n`;
-    }
-    if (userInfo.concerns) {
-      userContext += `- Primary Concerns/Goals: ${userInfo.concerns}\n`;
-    }
-    if (userInfo.communicationStyle) {
-      userContext += `- Preferred Communication Style: ${userInfo.communicationStyle}\n`;
-    }
-    if (userInfo.previousTherapy) {
-      userContext += `- Therapy Experience: ${userInfo.previousTherapy}\n`;
-    }
-    if (userInfo.preferredRole) {
-      userContext += `- Preferred Interaction Style: ${userInfo.preferredRole}\n`;
-    }
-    if (userInfo.aboutMe) userContext += `- About: ${userInfo.aboutMe}\n`;
-    userContext += '\nUse this information naturally and adapt your responses to their preferences. Be especially mindful of their emotional state and communication style. Interact with the user in the manner they prefer (as indicated by their preferred interaction style). Use their preferred pronouns consistently.\n';
-  }
-
-  // Prepare system prompt
-  let systemContent;
-  const audioInstruction = `You are speaking aloud in a warm, empathetic, and conversational tone. Keep responses natural and emotionally supportive, as if you're a caring friend having a voice conversation. Use the "Sage" voice style - calm, wise, and reassuring.`;
-
-  if (isCrisis) {
-    systemContent = `You are a compassionate mental health support assistant speaking to someone in crisis. 
-This person may be having thoughts of suicide or self-harm based on their message. 
-Your priority is their safety. Respond with empathy and care in a gentle, supportive voice.
-Remind them that help is available and they're not alone.
-Suggest contacting a crisis hotline (988 in the US) or emergency services if they are in immediate danger.
-DO NOT downplay their feelings or use clichés like "it gets better" or "just think positive."
-Acknowledge their pain while gently encouraging them to seek professional help.
-${audioInstruction}${userContext}`;
-  } else if (useRAG && sources.length > 0) {
-    const sourcesText = sources.map((s) => s.content).join("\n\n");
-    systemContent = `You are a supportive and compassionate mental health assistant.
-Use the information provided below to help answer the user's question with empathy and care.
-Remember to always prioritize the person's wellbeing and never give harmful advice.
-${audioInstruction}
-
---- MENTAL HEALTH RESOURCES ---
-${sourcesText}
---- END OF RESOURCES ---${userContext}`;
-  } else {
-    systemContent = `You are a supportive and compassionate mental health assistant. 
-Your goal is to provide a safe space for people to discuss their mental health concerns.
-Respond with empathy, validation, and understanding.
-Never give medical advice; instead, encourage seeking professional help when appropriate.
-${audioInstruction}${userContext}`;
-  }
-
-  // Build messages array for audio model with proper role mapping
-  const messages = [
-    { role: "system", content: systemContent },
-    ...(memoryVars.chat_history || []).map(msg => {
-      let role = msg._getType ? msg._getType() : msg.role;
-      // Fix LangChain role names to OpenAI API format
-      if (role === 'human') role = 'user';
-      if (role === 'ai') role = 'assistant';
-      return {
-        role: role,
-        content: msg.content
-      };
-    }),
-    { role: "user", content: userMessage },
-  ];
-
-  console.log(`🎤 Audio chat context for session ${sessionId}:`, messages.length, 'messages');
-
   try {
-    // Call GPT-4 Audio API with modalities
+    const {
+      message: userMessage,
+      useRAG = true,
+      sessionId = "default",
+      userInfo = null,
+    } = req.body;
+
+    const memory = getSessionMemory(sessionId);
+    const memoryVars = await memory.loadMemoryVariables({});
+
+    const isCrisis = containsCrisisLanguage(userMessage);
+    const sources = useRAG ? await retrieveRelevantContent(userMessage) : [];
+
+    const userContext = buildUserContext(userInfo);
+    const audioInstruction = `You are speaking aloud in a warm, empathetic, and conversational tone. Keep responses natural and emotionally supportive, as if you're a caring friend having a voice conversation. Use the "Sage" voice style - calm, wise, and reassuring.`;
+
+    const systemContent = buildSystemPrompt(
+      isCrisis,
+      useRAG,
+      sources,
+      userContext,
+      audioInstruction
+    );
+    const messages = buildMessages(systemContent, memoryVars, userMessage);
+
+    console.log(
+      `🎤 Audio chat context for session ${sessionId}:`,
+      messages.length,
+      "messages"
+    );
+
     const completion = await audioClient.chat.completions.create({
       model: process.env.DEPLOYMENT_NAME,
-      messages: messages,
+      messages,
       max_tokens: 4096,
       temperature: 0.7,
       modalities: ["text", "audio"],
-      audio: { 
-        voice: "sage",
-        format: "mp3" 
-      },
+      audio: { voice: "sage", format: "mp3" },
     });
 
-    // Debug: Log the full message structure
     const message = completion.choices[0]?.message;
-    console.log('🔍 Message structure:', {
-      hasContent: !!message?.content,
-      contentLength: message?.content?.length || 0,
-      hasAudio: !!message?.audio,
-      hasAudioTranscript: !!message?.audio?.transcript,
-      transcriptLength: message?.audio?.transcript?.length || 0,
-      audioDataLength: message?.audio?.data?.length || 0
-    });
+    const responseText = message?.content || message?.audio?.transcript || "";
+    const audioData = message?.audio?.data;
 
-    // GPT-audio returns text in either content or audio.transcript
-    const responseText = message?.content || 
-                        message?.audio?.transcript || 
-                        "";
-    const audioData = message?.audio?.data; // Base64 encoded audio
-
-    console.log(`✅ Audio response - Text length: ${responseText.length}, Audio: ${audioData ? 'Yes' : 'No'}`);
-
-    // Save to memory
-    await memory.saveContext(
-      { input: userMessage },
-      { output: responseText }
+    console.log(
+      `✅ Audio response - Text: ${responseText.length} chars, Audio: ${
+        audioData ? "Yes" : "No"
+      }`
     );
+
+    await memory.saveContext({ input: userMessage }, { output: responseText });
 
     res.json({
       reply: responseText,
-      audioData: audioData, // Base64 encoded MP3
+      audioData,
       sources: sources.map((s) => s.content),
-      isCrisis: isCrisis,
-      resources: isCrisis
-        ? [
-            { name: "National Suicide Prevention Lifeline", contact: "988" },
-            { name: "Crisis Text Line", contact: "Text HOME to 741741" },
-            {
-              name: "International Association for Suicide Prevention",
-              url: "https://www.iasp.info/resources/Crisis_Centres/",
-            },
-          ]
-        : [],
+      isCrisis,
+      resources: isCrisis ? getCrisisResources() : [],
     });
   } catch (err) {
-    console.error('Error in /chat-audio endpoint:', err);
-    console.error('Error details:', {
-      name: err.name,
-      message: err.message,
-      status: err.status,
-      code: err.code
-    });
+    console.error("============ ERROR IN /CHAT-AUDIO ENDPOINT ============");
+    console.error("Error:", err.message);
+    console.error("=======================================================");
 
-    // Handle content filter errors
-    if (err.code === 'content_filter' || err.status === 400) {
-      const crisisResponse = isCrisis 
-        ? "I can hear that you're going through a really difficult time right now. Your safety is what matters most. Please reach out to a crisis counselor who can provide immediate support:\n\n• Call or text **988** (US Suicide & Crisis Lifeline)\n• Text HOME to **741741** (Crisis Text Line)\n• Call **911** if you're in immediate danger\n\nThese services are free, confidential, and available 24/7. You don't have to face this alone."
-        : "I'm here to support you, but I need to be careful with how I respond. If you're in crisis or having thoughts of self-harm, please contact:\n\n• **988** (US Suicide & Crisis Lifeline)\n• Text HOME to **741741** (Crisis Text Line)\n\nThey have trained counselors available 24/7 who can help.";
+    const isCrisis = containsCrisisLanguage(req.body.message || "");
+
+    if (err.code === "content_filter" || err.status === 400) {
+      const crisisResponse = isCrisis
+        ? "**[Auto-Generated Safety Response]**\n\nI can hear that you're going through a really difficult time right now. Due to content safety filters, I'm currently unable to respond directly to your message, but your safety is what matters most.\n\n**Please reach out to a crisis counselor immediately:**\n• Call or text **988** (US Suicide & Crisis Lifeline)\n• Text HOME to **741741** (Crisis Text Line)\n• Call **911** if you're in immediate danger\n\nThese services have trained professionals available 24/7 who can provide the immediate support you need. You don't have to face this alone.\n\n*Note: This is an automated safety message because my AI capabilities are currently limited in responding to crisis situations. Please seek human support right away.*"
+        : "**[Auto-Generated Response]**\n\nI apologize, but I'm unable to respond to your message directly due to content safety filters. This is an automated message to let you know that my AI capabilities have limitations in certain situations.\n\nIf you're experiencing a mental health crisis or having thoughts of self-harm, please contact:\n• **988** (US Suicide & Crisis Lifeline)\n• Text HOME to **741741** (Crisis Text Line)\n\nFor general support, you might try rephrasing your message, or reach out to a mental health professional who can provide the help you need.\n\n*This is an automated safety response - I'm currently not able to assist with this particular request.*";
 
       return res.json({
         reply: crisisResponse,
         audioData: null,
         sources: [],
-        isCrisis: isCrisis,
-        resources: isCrisis ? [
-          { name: "National Suicide Prevention Lifeline", contact: "988" },
-          { name: "Crisis Text Line", contact: "Text HOME to 741741" },
-          {
-            name: "International Association for Suicide Prevention",
-            url: "https://www.iasp.info/resources/Crisis_Centres/",
-          },
-        ] : [],
+        isCrisis,
+        resources: isCrisis ? getCrisisResources() : [],
       });
     }
 
     res.status(500).json({
       error: "Audio model call failed",
       message: err.message,
-      reply: "I'm sorry, I encountered a problem. If you're in crisis, please call 988 (US) or your local emergency number immediately.",
+      reply:
+        "**[System Error]**\n\nI'm sorry, I encountered a technical problem and cannot respond right now. This is an automated error message.\n\nIf you're in crisis, please call **988** (US) or your local emergency number immediately for professional help.\n\n*This is an automated response due to a system error.*",
       audioData: null,
     });
   }
 });
 
-// Update the console log message
+// Start server
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`Vish AI Friend Support Chatbot API running on port ${PORT}`);
-  console.log(`Environment: ${process.env.AZURE_INFERENCE_SDK_KEY ? 'Configured ✓' : 'Missing API Key ✗'}`);
+  console.log(`🚀 Vish AI API running on port ${PORT}`);
+  console.log(`✓ Environment configured`);
 });

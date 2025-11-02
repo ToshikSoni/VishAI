@@ -15,7 +15,6 @@ export class ChatInterface extends LitElement {
       messages: { type: Array },
       inputMessage: { type: String },
       isLoading: { type: Boolean },
-      isRetrieving: { type: Boolean },
       ragEnabled: { type: Boolean },
       showCrisisResources: { type: Boolean },
       crisisResources: { type: Array },
@@ -25,8 +24,8 @@ export class ChatInterface extends LitElement {
       talkModeSupported: { type: Boolean },
       speechError: { type: String },
       sidebarOpen: { type: Boolean },
-      userInfo: { type: Object },
       activeTab: { type: String },
+      userInfo: { type: Object },
       userDocuments: { type: Array },
       isUploadingDoc: { type: Boolean },
       historySidebarOpen: { type: Boolean },
@@ -37,38 +36,47 @@ export class ChatInterface extends LitElement {
 
   constructor() {
     super();
+    // Message and input state
     this.messages = [];
     this.inputMessage = "";
     this.isLoading = false;
-    this.isRetrieving = false;
-    this.ragEnabled = true; // Enable RAG by default
+
+    // Features
+    this.ragEnabled = true;
     this.showCrisisResources = false;
     this.crisisResources = [];
+
+    // Talk mode
     this.talkModeActive = false;
+    this.talkModeSupported = false;
     this.isListening = false;
     this.isSpeaking = false;
-    this.talkModeSupported = false;
     this.speechError = "";
-    this.sessionId = this._generateSessionId();
     this.recognition = null;
     this.currentUtterance = null;
     this.currentAudio = null;
     this.bargeInTimer = null;
+
+    // Session management
+    this.sessionId = this._generateSessionId();
+    this.currentChatId = this._getCurrentChatId();
+    this.chatSessions = this._loadChatSessions();
+
+    // UI state
     this.sidebarOpen = false;
-    this.activeTab = "personal"; // 'personal' or 'documents'
+    this.historySidebarOpen = false;
+    this.activeTab = "personal";
+
+    // User data
+    this.userInfo = this._loadUserInfo();
     this.userDocuments = this._loadUserDocuments();
     this.isUploadingDoc = false;
-    this.userInfo = this._loadUserInfo();
-    this.historySidebarOpen = false;
-    this.chatSessions = this._loadChatSessions();
-    this.currentChatId = this._getCurrentChatId();
   }
 
-  // Create a unique session ID for this conversation
   _generateSessionId() {
-    return (
-      "session_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9)
-    );
+    return `session_${Date.now()}_${Math.random()
+      .toString(36)
+      .substring(2, 9)}`;
   }
 
   // Render into light DOM so external CSS applies
@@ -78,55 +86,54 @@ export class ChatInterface extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    // Load chat history from localStorage when component is added to the DOM
     this.messages = loadMessages();
-
-    // Show welcome message if no history
     if (this.messages.length === 0) {
       this._addWelcomeMessage();
     }
-
-    // Add Google Font for Quicksand
-    this._addGoogleFont();
     this._initializeSpeech();
   }
 
   disconnectedCallback() {
+    super.disconnectedCallback();
     this._stopListening();
     this._stopSpeaking();
-    super.disconnectedCallback();
-  }
-
-  _addGoogleFont() {
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href =
-      "https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap";
-    document.head.appendChild(link);
   }
 
   _addWelcomeMessage() {
-    const welcomeMessage = {
-      role: "assistant",
-      content:
-        "Hello there! I'm Vish, your friendly AI companion. I'm here to support you and provide a safe space for us to chat about whatever is on your mind. How are you feeling today? Remember, it's okay to not be okay, and I'm here to listen.",
-      isWelcome: true,
-    };
-    this.messages = [welcomeMessage];
+    this.messages = [
+      {
+        role: "assistant",
+        content:
+          "Hello there! I'm Vish, your friendly AI companion. I'm here to support you and provide a safe space for us to chat about whatever is on your mind. How are you feeling today? Remember, it's okay to not be okay, and I'm here to listen.",
+        isWelcome: true,
+      },
+    ];
     saveMessages(this.messages);
   }
 
+  _clearChat() {
+    this._startNewChat();
+    this._stopSpeaking();
+
+    fetch(API_URL + "/clear-memory", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: this.sessionId }),
+    }).catch((error) => console.error("Failed to clear server memory:", error));
+  }
+
   updated(changedProps) {
-    // Save chat history to localStorage whenever messages change
     if (changedProps.has("messages")) {
       saveMessages(this.messages);
-      this._saveCurrentChat(); // Also save to chat sessions
+      this._saveCurrentChat();
+      this._scrollToBottom();
+    }
+  }
 
-      // Scroll to the bottom of the chat
-      const chatMessages = this.querySelector(".chat-messages");
-      if (chatMessages) {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-      }
+  _scrollToBottom() {
+    const chatMessages = this.querySelector(".chat-messages");
+    if (chatMessages) {
+      chatMessages.scrollTop = chatMessages.scrollHeight;
     }
   }
 
@@ -199,10 +206,10 @@ export class ChatInterface extends LitElement {
                 ?checked=${this.ragEnabled}
                 @change=${this._toggleRag}
               />
-              <span class="toggle-label">Use Supportive Resources</span>
+              <span class="toggle-label">📚 Resources</span>
             </label>
             <button class="clear-chat-btn" @click=${this._clearChat}>
-              🆕 Start New Chat
+              ➕ New Chat
             </button>
             <button class="history-btn" @click=${this._toggleHistorySidebar}>
               📜 History
@@ -312,14 +319,7 @@ export class ChatInterface extends LitElement {
                 </div>
               `
             )}
-            ${this.isRetrieving
-              ? html`
-                  <div class="message system-message">
-                    <p>📚 Finding helpful resources for you...</p>
-                  </div>
-                `
-              : ""}
-            ${this.isLoading && !this.isRetrieving
+            ${this.isLoading
               ? html`
                   <div class="message ai-message thinking">
                     <div class="message-content">
@@ -489,80 +489,57 @@ export class ChatInterface extends LitElement {
     `;
   }
 
+  // Event Handlers
   _toggleRag(e) {
     this.ragEnabled = e.target.checked;
   }
 
-  _closeCrisisModal() {
-    this.showCrisisResources = false;
-    this.requestUpdate();
-  }
-
-  _toggleTalkMode() {
-    if (!this.talkModeSupported) {
-      return;
-    }
-
-    this.talkModeActive = !this.talkModeActive;
-    this.speechError = "";
-
-    if (this.talkModeActive) {
-      this._startListening();
-    } else {
-      this._stopListening();
-      this._stopSpeaking();
-    }
-  }
-
-  // Clear chat history and start fresh
-  _clearChat() {
-    this._startNewChat();
-    this._stopSpeaking();
-
-    // Clear the server-side memory as well
-    fetch(API_URL + "/clear-memory", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId: this.sessionId }),
-    }).catch((error) => {
-      console.error("Failed to clear server memory:", error);
-    });
-  }
-
-  // Update inputMessage state as the user types
   _handleInput(e) {
     this.inputMessage = e.target.value;
   }
 
-  // Send message on Enter key if not loading
   _handleKeyUp(e) {
     if (e.key === "Enter" && this.inputMessage.trim() && !this.isLoading) {
       this._sendMessage();
     }
   }
 
-  // Handle sending a message and receiving a response
+  _toggleSidebar() {
+    this.sidebarOpen = !this.sidebarOpen;
+  }
+
+  _switchTab(tab) {
+    this.activeTab = tab;
+  }
+
+  _toggleHistorySidebar() {
+    this.historySidebarOpen = !this.historySidebarOpen;
+  }
+
+  _closeCrisisModal() {
+    this.showCrisisResources = false;
+  }
+
+  // Chat Management
   async _sendMessage(messageOverride = null, options = {}) {
     const outgoing = (messageOverride ?? this.inputMessage).trim();
-    if (!outgoing || this.isLoading) {
-      return;
-    }
+    if (!outgoing || this.isLoading) return;
 
-    // Add user's message to the chat
-    const userMessage = {
-      role: "user",
-      content: outgoing,
-      viaSpeech: !!options.fromSpeech,
-    };
+    this.messages = [
+      ...this.messages,
+      {
+        role: "user",
+        content: outgoing,
+        viaSpeech: !!options.fromSpeech,
+      },
+    ];
 
-    this.messages = [...this.messages, userMessage];
     if (messageOverride === null) {
       this.inputMessage = "";
     }
     this.isLoading = true;
 
     try {
-      // Call API for response
       const aiResponse = await this._apiCall(outgoing);
 
       console.log("📨 API Response:", {
@@ -572,17 +549,17 @@ export class ChatInterface extends LitElement {
         talkMode: this.talkModeActive,
       });
 
-      const assistantMessage = {
-        role: "assistant",
-        content: aiResponse.reply,
-        sources: Array.isArray(aiResponse.sources) ? aiResponse.sources : [],
-        talkMode: this.talkModeActive,
-      };
+      this.messages = [
+        ...this.messages,
+        {
+          role: "assistant",
+          content: aiResponse.reply,
+          sources: Array.isArray(aiResponse.sources) ? aiResponse.sources : [],
+          talkMode: this.talkModeActive,
+        },
+      ];
 
-      // Add AI's response to the chat
-      this.messages = [...this.messages, assistantMessage];
-
-      // Show crisis resources if needed - check for both isCrisis flag and content filter responses
+      // Handle crisis resources
       const isContentFilterResponse =
         aiResponse.reply.includes("988") && aiResponse.reply.includes("741741");
 
@@ -590,7 +567,6 @@ export class ChatInterface extends LitElement {
         (aiResponse.isCrisis && aiResponse.resources) ||
         isContentFilterResponse
       ) {
-        // Ensure we have resources even for content filter responses
         this.crisisResources = aiResponse.resources || [
           { name: "National Suicide Prevention Lifeline", contact: "988" },
           { name: "Crisis Text Line", contact: "Text HOME to 741741" },
@@ -602,12 +578,10 @@ export class ChatInterface extends LitElement {
         this.showCrisisResources = true;
       }
 
-      // Handle audio playback for talk mode
+      // Handle audio playback
       if (this.talkModeActive && aiResponse.audioData) {
-        // Use GPT-4 Audio's native audio
         this._playAudioData(aiResponse.audioData);
       } else if (this.talkModeActive && aiResponse.reply) {
-        // Fallback to TTS if no audio data
         this._speakResponse(aiResponse.reply);
       }
     } catch (error) {
@@ -615,7 +589,6 @@ export class ChatInterface extends LitElement {
 
       let errorMessage = "I'm sorry, I'm having trouble responding right now. ";
 
-      // Add more specific error information
       if (
         error.message.includes("Failed to fetch") ||
         error.message.includes("NetworkError")
@@ -632,10 +605,7 @@ export class ChatInterface extends LitElement {
 
       this.messages = [
         ...this.messages,
-        {
-          role: "assistant",
-          content: errorMessage,
-        },
+        { role: "assistant", content: errorMessage },
       ];
     } finally {
       this.isLoading = false;
@@ -643,7 +613,6 @@ export class ChatInterface extends LitElement {
   }
 
   async _apiCall(message) {
-    // Use audio endpoint when in talk mode, regular endpoint otherwise
     const endpoint = this.talkModeActive ? "/chat-audio" : "/chat";
     const apiUrl = API_URL + endpoint;
 
@@ -667,8 +636,22 @@ export class ChatInterface extends LitElement {
       throw new Error(`API returned ${res.status}: ${errorText}`);
     }
 
-    const data = await res.json();
-    return data;
+    return await res.json();
+  }
+
+  // Speech/Talk Mode Methods
+  _toggleTalkMode() {
+    if (!this.talkModeSupported) return;
+
+    this.talkModeActive = !this.talkModeActive;
+    this.speechError = "";
+
+    if (this.talkModeActive) {
+      this._startListening();
+    } else {
+      this._stopListening();
+      this._stopSpeaking();
+    }
   }
 
   _initializeSpeech() {
@@ -696,9 +679,7 @@ export class ChatInterface extends LitElement {
     };
 
     this.recognition.onspeechstart = () => {
-      if (this.isSpeaking) {
-        this._stopSpeaking();
-      }
+      if (this.isSpeaking) this._stopSpeaking();
     };
 
     this.recognition.onend = () => {
@@ -710,9 +691,7 @@ export class ChatInterface extends LitElement {
     };
 
     this.recognition.onerror = (event) => {
-      if (event.error === "no-speech") {
-        return;
-      }
+      if (event.error === "no-speech") return;
       this.speechError = "Speech recognition error: " + event.error;
       this.talkModeActive = false;
       this._stopListening();
@@ -723,49 +702,39 @@ export class ChatInterface extends LitElement {
     this.recognition.onresult = (event) => {
       const transcript = event.results?.[0]?.[0]?.transcript?.trim();
       if (transcript) {
-        this._handleSpeechInput(transcript);
+        this._sendMessage(transcript, { fromSpeech: true });
       }
     };
   }
 
-  _handleSpeechInput(transcript) {
-    this._sendMessage(transcript, { fromSpeech: true });
-  }
-
   _startListening() {
-    if (!this.recognition || this.isListening) {
-      return;
-    }
+    if (!this.recognition || this.isListening) return;
     try {
       this.recognition.start();
     } catch (error) {
-      // Ignore restarts while recognition is already running
+      // Ignore errors when recognition is already running
     }
   }
 
   _stopListening() {
-    if (!this.recognition) {
-      return;
-    }
+    if (!this.recognition) return;
     try {
       this.recognition.stop();
     } catch (error) {
-      // Ignore stop errors when recognition is already inactive
+      // Ignore stop errors
     }
     this.isListening = false;
     this.requestUpdate();
   }
 
   _stopSpeaking() {
-    if (typeof window === "undefined" || !window.speechSynthesis) {
-      return;
-    }
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+
     if (this.bargeInTimer) {
       clearTimeout(this.bargeInTimer);
       this.bargeInTimer = null;
     }
 
-    // Stop native audio if playing
     if (this.currentAudio) {
       this.currentAudio.pause();
       this.currentAudio = null;
@@ -777,24 +746,20 @@ export class ChatInterface extends LitElement {
   }
 
   _playAudioData(base64Audio) {
-    if (!base64Audio) {
-      return;
-    }
-
+    if (!base64Audio) return;
     this._stopSpeaking();
 
     try {
-      // Convert base64 to blob
       const byteCharacters = atob(base64Audio);
       const byteNumbers = new Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) {
         byteNumbers[i] = byteCharacters.charCodeAt(i);
       }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: "audio/mp3" });
+      const blob = new Blob([new Uint8Array(byteNumbers)], {
+        type: "audio/mp3",
+      });
       const audioUrl = URL.createObjectURL(blob);
 
-      // Create and play audio
       const audio = new Audio(audioUrl);
       this.currentAudio = audio;
 
@@ -809,9 +774,7 @@ export class ChatInterface extends LitElement {
         URL.revokeObjectURL(audioUrl);
         this.currentAudio = null;
         this.requestUpdate();
-        if (this.talkModeActive) {
-          this._startListening();
-        }
+        if (this.talkModeActive) this._startListening();
       };
 
       audio.onended = resumeListening;
@@ -832,10 +795,7 @@ export class ChatInterface extends LitElement {
   }
 
   _speakResponse(text) {
-    if (typeof window === "undefined" || !window.speechSynthesis) {
-      return;
-    }
-
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
     this._stopSpeaking();
 
     const utterance = new SpeechSynthesisUtterance(text);
@@ -851,9 +811,7 @@ export class ChatInterface extends LitElement {
     const resumeListening = () => {
       this.isSpeaking = false;
       this.requestUpdate();
-      if (this.talkModeActive) {
-        this._startListening();
-      }
+      if (this.talkModeActive) this._startListening();
     };
 
     utterance.onend = resumeListening;
@@ -863,12 +821,9 @@ export class ChatInterface extends LitElement {
   }
 
   _scheduleBargeInResume() {
-    if (!this.talkModeActive) {
-      return;
-    }
-    if (this.bargeInTimer) {
-      clearTimeout(this.bargeInTimer);
-    }
+    if (!this.talkModeActive) return;
+    if (this.bargeInTimer) clearTimeout(this.bargeInTimer);
+
     this.bargeInTimer = setTimeout(() => {
       this.bargeInTimer = null;
       if (this.talkModeActive && this.isSpeaking) {
@@ -877,14 +832,7 @@ export class ChatInterface extends LitElement {
     }, 600);
   }
 
-  // Sidebar methods
-  _toggleSidebar() {
-    this.sidebarOpen = !this.sidebarOpen;
-  }
-
-  _switchTab(tab) {
-    this.activeTab = tab;
-  }
+  // User Info Methods
 
   _renderPersonalInfoTab() {
     return html`
@@ -1595,10 +1543,8 @@ export class ChatInterface extends LitElement {
     const date = new Date(isoString);
     const now = new Date();
     const diffMs = now - date;
-    const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    // If today, show time
     if (diffDays === 0) {
       return date.toLocaleTimeString("en-US", {
         hour: "numeric",
@@ -1607,7 +1553,6 @@ export class ChatInterface extends LitElement {
       });
     }
 
-    // If this week, show day and time
     if (diffDays < 7) {
       return date.toLocaleDateString("en-US", {
         weekday: "short",
@@ -1617,7 +1562,6 @@ export class ChatInterface extends LitElement {
       });
     }
 
-    // Otherwise show full date and time
     return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
@@ -1626,94 +1570,6 @@ export class ChatInterface extends LitElement {
       minute: "2-digit",
       hour12: true,
     });
-  }
-
-  _getUserInfoContext() {
-    if (!this._hasUserInfo()) {
-      return "";
-    }
-
-    let context = "\n\n[User Information for Context]:\n";
-
-    if (this.userInfo.name) {
-      context += `- Name: ${this.userInfo.name}\n`;
-    }
-    if (this.userInfo.age) {
-      context += `- Age: ${this.userInfo.age}\n`;
-    }
-    if (this.userInfo.gender) {
-      context += `- Gender: ${this.userInfo.gender}\n`;
-    }
-    if (this.userInfo.pronouns) {
-      context += `- Preferred Pronouns: ${this.userInfo.pronouns}\n`;
-    }
-    if (this.userInfo.occupationType === "student") {
-      context += "- Occupation: Student\n";
-      if (this.userInfo.course) {
-        context += `- Course: ${this.userInfo.course}\n`;
-      }
-      if (this.userInfo.branch) {
-        context += `- Branch/Specialization: ${this.userInfo.branch}\n`;
-      }
-    } else if (this.userInfo.occupationType === "working") {
-      context += "- Occupation: Working Professional\n";
-      if (this.userInfo.jobTitle) {
-        context += `- Job Title: ${this.userInfo.jobTitle}\n`;
-      }
-      if (this.userInfo.organization) {
-        context += `- Organization: ${this.userInfo.organization}\n`;
-      }
-    }
-    if (this.userInfo.currentMood) {
-      context += `- Current Emotional State: ${this.userInfo.currentMood}\n`;
-    }
-    if (this.userInfo.concerns) {
-      context += `- Primary Concerns/Goals: ${this.userInfo.concerns}\n`;
-    }
-    if (this.userInfo.communicationStyle) {
-      context += `- Preferred Communication Style: ${this.userInfo.communicationStyle}\n`;
-    }
-    if (this.userInfo.previousTherapy) {
-      context += `- Therapy Experience: ${this.userInfo.previousTherapy}\n`;
-    }
-    if (this.userInfo.preferredRole) {
-      context += `- Preferred Interaction Style: ${this.userInfo.preferredRole}\n`;
-    }
-    if (this.userInfo.aboutMe) {
-      context += `- About: ${this.userInfo.aboutMe}\n`;
-    }
-
-    context +=
-      "\nPlease use this information naturally and adapt your responses to their preferences. Be especially mindful of their emotional state and communication style. Use their preferred pronouns consistently.";
-
-    if (this.userInfo.preferredRole) {
-      const roleInstructions = {
-        friend:
-          "Interact as a supportive friend would - casual, warm, and understanding.",
-        therapist:
-          "Maintain a professional therapeutic approach with structure and clinical insights.",
-        mentor:
-          "Provide guidance and wisdom like a trusted mentor, helping them grow and learn.",
-        sibling:
-          "Be familiar and caring like a sibling - protective yet relatable.",
-        family:
-          "Act as a warm family member would - protective, loving, and unconditionally supportive.",
-        partner:
-          "Interact with intimate understanding like a caring partner - emotionally attuned and deeply supportive.",
-        coach:
-          "Be motivational and goal-oriented like a life coach - energetic and action-focused.",
-        confidant:
-          "Be a trustworthy confidant - non-judgmental, discreet, and deeply understanding.",
-      };
-
-      if (roleInstructions[this.userInfo.preferredRole]) {
-        context += ` ${roleInstructions[this.userInfo.preferredRole]}`;
-      }
-    }
-
-    context += "\n";
-
-    return context;
   }
 }
 
