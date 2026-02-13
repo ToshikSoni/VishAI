@@ -210,13 +210,13 @@ export class ChatInterface extends LitElement {
               class="rag-toggle ${this.ragEnabled ? 'active' : ''}"
               @click=${this._toggleRag}
             >
-              📚 Resources
+              Resources
             </button>
             <button class="clear-chat-btn" @click=${this._clearChat}>
-              ➕ New Chat
+              New Chat
             </button>
             <button class="history-btn" @click=${this._toggleHistorySidebar}>
-              📜 History
+              History
             </button>
           </div>
         </div>
@@ -271,7 +271,7 @@ export class ChatInterface extends LitElement {
                       </ul>
                       <p class="crisis-note">
                         <strong>⚠️ Emergency:</strong> If you're feeling unsafe
-                        right now, please call emergency services (911 in the
+                        right now, please call emergency services (988 in the
                         US) or reach out to someone you trust immediately.
                       </p>
                     </div>
@@ -299,9 +299,6 @@ export class ChatInterface extends LitElement {
                     : ""}"
                 >
                   <div class="message-content">
-                    <span class="message-sender"
-                      >${message.role === "user" ? "👤 You" : "💚 Vish"}</span
-                    >
                     <div class="message-text">
                       ${unsafeHTML(formatMarkdown(message.content))}
                     </div>
@@ -327,7 +324,6 @@ export class ChatInterface extends LitElement {
               ? html`
                   <div class="message ai-message thinking">
                     <div class="message-content">
-                      <span class="message-sender">Vish</span>
                       <p>
                         <span class="typing-indicator"
                           >Thinking<span>.</span><span>.</span
