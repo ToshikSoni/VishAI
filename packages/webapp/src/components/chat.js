@@ -6,7 +6,7 @@ import {
   clearMessages,
 } from "../utils/chatStore.js";
 import { formatMarkdown } from "../utils/markdownFormatter.js";
-import { API_URL } from "../config/api.js";
+import { API_URL, fetchWithRetry } from "../config/api.js";
 import "./chat.css";
 
 export class ChatInterface extends LitElement {
@@ -121,7 +121,7 @@ export class ChatInterface extends LitElement {
     this._startNewChat();
     this._stopSpeaking();
 
-    fetch(API_URL + "/clear-memory", {
+    fetchWithRetry(API_URL + "/clear-memory", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId: this.sessionId }),
@@ -636,7 +636,7 @@ export class ChatInterface extends LitElement {
 
     console.log(`🌐 Calling API: ${apiUrl}`);
 
-    const res = await fetch(apiUrl, {
+    const res = await fetchWithRetry(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1288,7 +1288,7 @@ export class ChatInterface extends LitElement {
       const formData = new FormData();
       formData.append("document", file);
 
-      const response = await fetch(API_URL + "/upload-document", {
+      const response = await fetchWithRetry(API_URL + "/upload-document", {
         method: "POST",
         body: formData,
       });
@@ -1335,7 +1335,7 @@ export class ChatInterface extends LitElement {
 
     try {
       // Call backend to delete the document
-      await fetch(API_URL + `/delete-document/${doc.id}`, {
+      await fetchWithRetry(API_URL + `/delete-document/${doc.id}`, {
         method: "DELETE",
       });
 

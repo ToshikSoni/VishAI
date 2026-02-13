@@ -57,7 +57,7 @@ module webapp 'br/public:avm/res/web/static-site:0.7.0' = {
     name: webappName
     location: webappLocation
     tags: union(tags, { 'azd-service-name': webappName })
-    sku: 'Standard'
+    sku: 'Free'
     appSettings: {
       VITE_API_URL: 'https://${webapiName}.azurewebsites.net'
     }
@@ -69,7 +69,7 @@ module serverfarm 'br/public:avm/res/web/serverfarm:0.4.1' = {
   scope: resourceGroup
   params: {
     name: appServicePlanName
-    skuName: 'B1'
+    skuName: 'F1'
   }
 }
 
@@ -81,6 +81,9 @@ module webapi 'br/public:avm/res/web/site:0.15.1' = {
     name: webapiName
     tags: union(tags, { 'azd-service-name': 'webapi' })
     serverFarmResourceId: serverfarm.outputs.resourceId
+    siteConfig: {
+      alwaysOn: false
+    }
     appSettingsKeyValuePairs: {
       AZURE_INFERENCE_SDK_KEY: azureInferenceSdkKey
       INSTANCE_NAME: instanceName
