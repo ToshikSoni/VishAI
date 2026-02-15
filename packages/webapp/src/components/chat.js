@@ -31,6 +31,7 @@ export class ChatInterface extends LitElement {
       toastMessage: { type: String },
       showToast: { type: Boolean },
       showAvatar: { type: Boolean },
+      avatarConfig: { type: Object },
     };
   }
 
@@ -64,6 +65,49 @@ export class ChatInterface extends LitElement {
     this.showToast = false;
     this.avatar = null;
     this.showAvatar = true;
+    this.avatarConfig = this._loadAvatarConfig();
+    
+    this.availableAvatars = [
+      { id: "female1", name: "Ava (Default)", file: "avfemale1.vrm", gender: "female" },
+      { id: "female2", name: "Luna", file: "avfemale2.vrm", gender: "female" },
+      { id: "male1", name: "Kai", file: "avmale1.vrm", gender: "male" }
+    ];
+
+    this.availableVoices = [
+      "Alloy", "Ash", "Ballad", "Cedar", "Coral", "Echo", "Marin", "Sage", "Shimmer", "Verse"
+    ];
+  }
+
+  _loadAvatarConfig() {
+    const defaultConfig = { id: "female1", name: "Ava (Default)", file: "avfemale1.vrm", voice: "Marin", gender: "female" };
+    try {
+      const saved = localStorage.getItem("vishAvatarConfig");
+      return saved ? { ...defaultConfig, ...JSON.parse(saved) } : defaultConfig;
+    } catch (e) {
+      return defaultConfig;
+    }
+  }
+
+  _saveAvatarConfig(updates) {
+    // If switching avatar, check if voice should be updated to a default
+    if (updates.id) {
+       const selectedAvatar = this.availableAvatars.find(a => a.id === updates.id);
+       if (selectedAvatar) {
+         // If switching gender and voice is not set or matches default of previous gender, maybe switch?
+         // For now, let's just update the visual properties. The user requested separate control.
+         // However, providing a sensible default when switching gender might be nice.
+         // Let's stick to explicit choice for now as requested.
+         this.avatarConfig = { ...this.avatarConfig, ...selectedAvatar, ...updates };
+       }
+    } else {
+        this.avatarConfig = { ...this.avatarConfig, ...updates };
+    }
+    
+    localStorage.setItem("vishAvatarConfig", JSON.stringify(this.avatarConfig));
+    this.requestUpdate();
+    if (updates.id) {
+        this._initializeAvatar(); // Reload avatar only if visual avatar changed
+    }
   }
 
   _generateSessionId() {
@@ -138,9 +182,13 @@ export class ChatInterface extends LitElement {
           <div class="sidebar-tabs">
             <button class="tab-btn ${this.activeTab === "personal" ? "active" : ""}" @click=${() => this._switchTab("personal")}>👤 Personal Info</button>
             <button class="tab-btn ${this.activeTab === "documents" ? "active" : ""}" @click=${() => this._switchTab("documents")}>📄 Documents</button>
+            <button class="tab-btn ${this.activeTab === "avatar" ? "active" : ""}" @click=${() => this._switchTab("avatar")}>🎭 Avatar</button>
           </div>
           <div class="sidebar-content">
-            ${this.activeTab === "personal" ? this._renderPersonalInfoTab() : this._renderDocumentsTab()}
+            ${this.activeTab === "personal" ? this._renderPersonalInfoTab() : 
+              this.activeTab === "documents" ? this._renderDocumentsTab() :
+              this._renderAvatarTab()
+            }
           </div>
         </div>
 
@@ -394,16 +442,23 @@ export class ChatInterface extends LitElement {
 
   async _apiCall(message) {
     const endpoint = this.talkModeActive ? "/chat-audio" : "/chat";
+    
+    // DEBUG: Log the payload being sent
+    const payload = {
+      message,
+      useRAG: this.ragEnabled,
+      sessionId: this.sessionId,
+      mode: this.talkModeActive ? "talk" : "chat",
+      userInfo: this._hasUserInfo() ? this.userInfo : null,
+      avatarConfig: this.avatarConfig || { voice: "marin", gender: "female" },
+    };
+    console.log("Sending API request to:", endpoint);
+    console.log("Payload:", JSON.stringify(payload, null, 2));
+
     const res = await fetchWithRetry(API_URL + endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message,
-        useRAG: this.ragEnabled,
-        sessionId: this.sessionId,
-        mode: this.talkModeActive ? "talk" : "chat",
-        userInfo: this._hasUserInfo() ? this.userInfo : null,
-      }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const errorText = await res.text();
@@ -497,8 +552,9 @@ export class ChatInterface extends LitElement {
 
     try {
       this.avatar = new VRMAvatar(avatarContainer);
-      await this.avatar.loadVRM("/avatar.vrm");
-      console.log("Avatar initialized successfully");
+      const avatarFile = this.avatarConfig?.file || "avfemale1.vrm";
+      await this.avatar.loadVRM(`/${avatarFile}`);
+      console.log(`Avatar ${avatarFile} initialized successfully`);
       this.avatar.playIdleGesture();
       
       const wave = () => this.avatar.playWaveGesture();
@@ -513,14 +569,15 @@ export class ChatInterface extends LitElement {
         message: greetingPrompt,
         sessionId: this.currentChatId || Date.now().toString(),
         mode: "talk",
-        useRAG: false
+        useRAG: false,
+        avatarConfig: this.avatarConfig // Send avatar config
       };
 
       try {
         const response = await fetch(`${API_URL}/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
         });
 
         if (response.ok) {
@@ -675,16 +732,16 @@ export class ChatInterface extends LitElement {
             </label>
           </div>
         </div>
-        ${this.userInfo.occupationType === "student" ? html`
-          <div class="form-group">
-            <label for="course">Course</label>
-            <input type="text" id="course" placeholder="e.g., BTech, BBA, MBA" .value=${this.userInfo.course || ""} @input=${(e) => this._updateUserInfo("course", e.target.value)} />
-          </div>
-          <div class="form-group">
-            <label for="branch">Branch/Specialization</label>
-            <input type="text" id="branch" placeholder="e.g., CSE, ECE, Finance" .value=${this.userInfo.branch || ""} @input=${(e) => this._updateUserInfo("branch", e.target.value)} />
-          </div>
-        ` : ""}
+        
+        <div class="form-group">
+          <label for="course">Course</label>
+          <input type="text" id="course" placeholder="e.g., BTech, BBA, MBA" .value=${this.userInfo.course || ""} @input=${(e) => this._updateUserInfo("course", e.target.value)} />
+        </div>
+        <div class="form-group">
+          <label for="branch">Branch/Specialization</label>
+          <input type="text" id="branch" placeholder="e.g., CSE, ECE, Finance" .value=${this.userInfo.branch || ""} @input=${(e) => this._updateUserInfo("branch", e.target.value)} />
+        </div>
+
         ${this.userInfo.occupationType === "working" ? html`
           <div class="form-group">
             <label for="jobTitle">Job Title</label>
@@ -781,6 +838,40 @@ export class ChatInterface extends LitElement {
             `)}
           </ul>
         `}
+      </div>
+    `;
+  }
+
+  _renderAvatarTab() {
+    return html`
+      <p class="sidebar-description">Choose your AI companion's appearance and voice.</p>
+      
+      <h4 style="margin-bottom: 10px; color: var(--primary-color);">Appearance</h4>
+      <div class="avatar-selection-list">
+        ${this.availableAvatars.map(avatar => html`
+          <div class="avatar-card ${this.avatarConfig && this.avatarConfig.id === avatar.id ? 'selected' : ''}" 
+               @click=${() => this._saveAvatarConfig({ id: avatar.id })}>
+            <div class="avatar-icon">${avatar.gender === 'female' ? '👩' : '👨'}</div>
+            <div class="avatar-info">
+              <span class="avatar-name">${avatar.name}</span>
+            </div>
+            ${this.avatarConfig && this.avatarConfig.id === avatar.id ? html`<div class="check-mark">✓</div>` : ''}
+          </div>
+        `)}
+      </div>
+
+      <h4 style="margin-top: 24px; margin-bottom: 10px; color: var(--primary-color);">Voice Model</h4>
+      <div class="voice-selection-container">
+        <select class="voice-select" .value=${this.avatarConfig?.voice || "Marin"} @change=${(e) => this._saveAvatarConfig({ voice: e.target.value })}>
+          ${this.availableVoices.map(voice => html`
+            <option value=${voice}>${voice}</option>
+          `)}
+        </select>
+        <p class="voice-description">Select the voice model for your AI companion.</p>
+      </div>
+
+      <div class="avatar-note">
+        <p>Switching avatars will update the personality context.</p>
       </div>
     `;
   }

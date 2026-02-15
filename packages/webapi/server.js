@@ -261,7 +261,9 @@ app.post("/chat", async (req, res) => {
       sessionId = "default",
       mode = "chat",
       userInfo = null,
+      avatarConfig = null,
     } = req.body;
+    console.log("Received avatarConfig:", JSON.stringify(avatarConfig));
     const talkMode = mode.toLowerCase() === "talk";
 
     const memory = getSessionMemory(sessionId);
@@ -272,6 +274,15 @@ app.post("/chat", async (req, res) => {
     console.log(`Selected Agent: ${selectedAgent.name} (${selectedAgent.role})`);
 
     let systemContent = await orchestrator.getAgentSystemPrompt(selectedAgent, userInfo);
+
+    // Apply Avatar Context
+    const avatarVoice = (avatarConfig?.voice || "marin").toLowerCase();
+    if (avatarConfig) {
+      const gender = avatarConfig.gender || "female";
+      const name = avatarConfig.name || "Vish";
+      const context = `You are now embodying "${name}", a ${gender} AI companion. Your voice is ${avatarVoice}. Adjust your persona to be consistent with this identity while maintaining your role as a supportive companion.`;
+      systemContent = `${context}\n\n${systemContent}`;
+    }
 
     if (mcpConnected) {
       systemContent += await orchestrator.getMCPContext(selectedAgent, userMessage);
@@ -296,7 +307,7 @@ app.post("/chat", async (req, res) => {
       max_tokens: 4096,
       temperature: 0.7,
       modalities: ["text", "audio"],
-      audio: { voice: "marin", format: "mp3" },
+      audio: { voice: avatarVoice, format: "mp3" },
     });
 
     const message = completion.choices[0]?.message;
@@ -402,6 +413,7 @@ app.post("/chat-audio", async (req, res) => {
       useRAG = true,
       sessionId = "default",
       userInfo = null,
+      avatarConfig = null,
     } = req.body;
 
     const memory = getSessionMemory(sessionId);
@@ -412,6 +424,15 @@ app.post("/chat-audio", async (req, res) => {
     console.log(`Audio - Selected Agent: ${selectedAgent.name} (${selectedAgent.role})`);
 
     let systemContent = await orchestrator.getAgentSystemPrompt(selectedAgent, userInfo);
+
+    // Apply Avatar Context
+    const avatarVoice = (avatarConfig?.voice || "marin").toLowerCase();
+    if (avatarConfig) {
+      const gender = avatarConfig.gender || "female";
+      const name = avatarConfig.name || "Vish";
+      const context = `You are now embodying "${name}", a ${gender} AI companion. Your voice is ${avatarVoice}. Adjust your persona to be consistent with this identity while maintaining your role as a supportive companion.`;
+      systemContent = `${context}\n\n${systemContent}`;
+    }
 
     if (mcpConnected) {
       systemContent += await orchestrator.getMCPContext(selectedAgent, userMessage);
@@ -434,7 +455,7 @@ app.post("/chat-audio", async (req, res) => {
       max_tokens: 4096,
       temperature: 0.7,
       modalities: ["text", "audio"],
-      audio: { voice: "marin", format: "mp3" },
+      audio: { voice: avatarVoice, format: "mp3" },
     });
 
     const message = audioCompletion.choices[0]?.message;

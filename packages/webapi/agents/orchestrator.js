@@ -59,11 +59,30 @@ export class AgentOrchestrator {
       systemPrompt += "\n\n=== USER CONTEXT ===\n";
       if (userProfile.name) systemPrompt += `Name: ${userProfile.name}\n`;
       if (userProfile.age) systemPrompt += `Age: ${userProfile.age}\n`;
-      if (userProfile.occupation) systemPrompt += `Occupation: ${userProfile.occupation}\n`;
+      
+      // Dynamic profile building to include all relevant fields
+      if (userProfile.gender) systemPrompt += `Gender: ${userProfile.gender}\n`;
+      if (userProfile.pronouns) systemPrompt += `Pronouns: ${userProfile.pronouns}\n`;
+      
+      if (userProfile.occupationType || userProfile.occupation) {
+        systemPrompt += `Occupation: ${userProfile.occupationType || userProfile.occupation}\n`;
+      }
+      
+      if (userProfile.jobTitle) systemPrompt += `Job Title: ${userProfile.jobTitle}\n`;
+      if (userProfile.organization) systemPrompt += `Organization: ${userProfile.organization}\n`;
+      
+      if (userProfile.course) systemPrompt += `Course: ${userProfile.course}\n`;
+      if (userProfile.branch) systemPrompt += `Branch: ${userProfile.branch}\n`;
       if (userProfile.currentMood) systemPrompt += `Current Mood: ${userProfile.currentMood}\n`;
-      if (userProfile.primaryConcerns) systemPrompt += `Primary Concerns: ${userProfile.primaryConcerns}\n`;
+      
+      const concerns = userProfile.concerns || userProfile.primaryConcerns;
+      if (concerns) systemPrompt += `Primary Concerns: ${concerns}\n`;
+      
       if (userProfile.communicationStyle) systemPrompt += `Preferred Communication Style: ${userProfile.communicationStyle}\n`;
       if (userProfile.preferredRole) systemPrompt += `Preferred Interaction Role: ${userProfile.preferredRole}\n`;
+      
+      if (userProfile.previousTherapy) systemPrompt += `Previous Therapy: ${userProfile.previousTherapy}\n`;
+      if (userProfile.aboutMe) systemPrompt += `About Me: ${userProfile.aboutMe}\n`;
     }
 
     systemPrompt += "\n\n=== MULTI-AGENT SYSTEM CONTEXT ===\n";
