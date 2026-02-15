@@ -2063,4 +2063,290 @@ button:disabled {
         width: 90%;
         right: -90%;
     }
+
+    .top-nav {
+        padding: 10px 15px;
+        min-height: 50px;
+    }
+
+    .app-title {
+        font-size: 1.2rem;
+    }
+
+    .nav-right {
+        gap: 8px;
+    }
+
+    .chat-container {
+        border-radius: 0;
+        margin: 0;
+    }
+
+    .chat-messages {
+        padding: 15px;
+    }
+
+    .message {
+        max-width: 95%;
+    }
+
+    .agent-badge {
+        font-size: 0.75rem;
+        padding: 3px 10px;
+    }
+
+    .crisis-modal {
+        width: 95%;
+        max-width: none;
+        margin: 20px;
+    }
+}
+
+/* Responsive - Mobile Phones */
+@media (max-width: 480px) {
+    :host {
+        font-size: 14px;
+    }
+
+    .top-nav {
+        padding: 8px 12px;
+        flex-wrap: wrap;
+        min-height: auto;
+    }
+
+    .app-title {
+        font-size: 1rem;
+        margin-right: auto;
+    }
+
+    .nav-left,
+    .nav-right {
+        gap: 6px;
+    }
+
+    .nav-right button,
+    .sidebar-toggle-btn,
+    .history-btn {
+        padding: 6px 10px;
+        font-size: 0.85rem;
+    }
+
+    .chat-main {
+        padding: 0;
+    }
+
+    .chat-container {
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    .chat-header {
+        padding: 12px 15px;
+    }
+
+    .chat-header h2 {
+        font-size: 1.1rem;
+    }
+
+    .chat-messages {
+        padding: 10px;
+        gap: 12px;
+    }
+
+    .message {
+        max-width: 100%;
+        padding: 10px 12px;
+    }
+
+    .message-text {
+        font-size: 0.95rem;
+    }
+
+    .agent-badge {
+        font-size: 0.7rem;
+        padding: 2px 8px;
+        margin-bottom: 6px;
+    }
+
+    .chat-input-container {
+        padding: 10px;
+        gap: 8px;
+    }
+
+    .chat-input {
+        font-size: 0.95rem;
+        padding: 10px 12px;
+    }
+
+    .send-btn,
+    .talk-mode-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 1.1rem;
+    }
+
+    .rag-toggle {
+        padding: 8px 15px;
+        font-size: 0.85rem;
+    }
+
+    /* Sidebar adjustments */
+    .sidebar-header h2 {
+        font-size: 1.1rem;
+    }
+
+    .info-section h3 {
+        font-size: 1rem;
+    }
+
+    .user-info-item input {
+        font-size: 0.9rem;
+    }
+
+    /* Crisis modal mobile */
+    .crisis-modal {
+        width: 95%;
+        margin: 10px;
+        padding: 15px;
+    }
+
+    .modal-header h3 {
+        font-size: 1.1rem;
+    }
+
+    .crisis-list {
+        font-size: 0.9rem;
+    }
+
+    /* Toast notification mobile */
+    .toast-notification {
+        top: 60px;
+        padding: 10px 20px;
+        font-size: 0.85rem;
+        max-width: 90%;
+    }
+
+    /* Avatar canvas mobile */
+    .avatar-canvas {
+        height: 200px !important;
+    }
+
+    /* Voice indicator mobile */
+    .voice-indicator {
+        width: 8px;
+        height: 8px;
+    }
+
+    .listening-pulse,
+    .speaking-pulse {
+        width: 20px;
+        height: 20px;
+    }
+}
+
+/* Landscape mobile optimization */
+@media (max-width: 768px) and (orientation: landscape) {
+    .avatar-canvas {
+        height: 150px !important;
+    }
+
+    .top-nav {
+        padding: 6px 12px;
+    }
+
+    .chat-messages {
+        max-height: 40vh;
+    }
+}
+
+/* Extra small devices */
+@media (max-width: 320px) {
+    .app-title {
+        font-size: 0.9rem;
+    }
+
+    .agent-badge {
+        font-size: 0.65rem;
+        padding: 2px 6px;
+    }
+
+    .nav-right button {
+        padding: 5px 8px;
+        font-size: 0.75rem;
+    }
+
+    .message-text {
+        font-size: 0.9rem;
+    }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+    /* Larger touch targets */
+    button {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    .chat-input {
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+
+    /* Prevent double-tap zoom */
+    * {
+        touch-action: manipulation;
+    }
+
+    /* Smooth scrolling on touch */
+    .chat-messages {
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    .avatar-canvas {
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: crisp-edges;
+    }
+}
+
+/* Dark mode support (system preference) */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background-color: #1a1a1a;
+        --text-color: #e0e0e0;
+        --ai-bubble: #2a2a2a;
+        --user-bubble: #6b8e9e;
+    }
+
+    body {
+        background-color: #121212;
+        color: #e0e0e0;
+    }
+
+    .chat-container {
+        background-color: #1e1e1e;
+    }
+
+    .message {
+        background-color: #2a2a2a;
+    }
+
+    .user-message {
+        background-color: #6b8e9e;
+    }
+}
+
+/* Reduced motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    .typing-indicator span {
+        animation: none;
+    }
 }

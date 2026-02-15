@@ -682,6 +682,114 @@ AGPL-3.0
 
 ---
 
+## 🏗️ ARCHITECTURE DIAGRAM
+
+```mermaid
+graph TB
+    subgraph "Frontend - Lit Web Components"
+        UI[Chat Interface]
+        Avatar[3D Avatar<br/>Three.js + VRM]
+        Voice[Voice Input/Output<br/>Web Speech API]
+    end
+
+    subgraph "Backend API - Express.js"
+        API[API Server<br/>Port 3000]
+        Orchestrator[Agent Orchestrator<br/>Intelligent Routing]
+        Memory[LangChain Memory<br/>Conversation History]
+    end
+
+    subgraph "Multi-Agent System"
+        Crisis[🚨 Crisis Counselor Agent<br/>Suicide Prevention]
+        CBT[🧠 CBT Therapist Agent<br/>Cognitive Behavioral Therapy]
+        Mindfulness[🧘 Mindfulness Coach Agent<br/>Meditation & Breathing]
+        Companion[💙 Companion Agent<br/>General Support]
+    end
+
+    subgraph "Azure MCP Server"
+        MCP[MCP Server<br/>Port 3001]
+        Tools[MCP Tools<br/>5 Specialized Functions]
+        Resources[MCP Resources<br/>4 Knowledge Collections]
+    end
+
+    subgraph "Azure Cloud Services"
+        OpenAI[Azure OpenAI<br/>GPT-4o + Audio]
+        Cosmos[(Azure Cosmos DB<br/>Session Storage)]
+        KeyVault[Azure Key Vault<br/>Secrets Management]
+        AppService[Azure App Service<br/>Web Hosting]
+        Monitor[Azure Monitor<br/>Logging & Analytics]
+    end
+
+    subgraph "Knowledge Base"
+        KB1[Crisis Resources<br/>Emergency Hotlines]
+        KB2[CBT Techniques<br/>Therapeutic Methods]
+        KB3[Coping Strategies<br/>Evidence-Based]
+        KB4[Mental Health Topics<br/>Educational Content]
+    end
+
+    UI --> API
+    Avatar --> UI
+    Voice --> UI
+    
+    API --> Orchestrator
+    API --> Memory
+    
+    Orchestrator --> Crisis
+    Orchestrator --> CBT
+    Orchestrator --> Mindfulness
+    Orchestrator --> Companion
+    
+    Crisis --> MCP
+    CBT --> MCP
+    Mindfulness --> MCP
+    Companion --> MCP
+    
+    MCP --> Tools
+    MCP --> Resources
+    
+    Tools --> KB1
+    Tools --> KB2
+    Tools --> KB3
+    Tools --> KB4
+    
+    Resources --> KB1
+    Resources --> KB2
+    Resources --> KB3
+    Resources --> KB4
+    
+    API --> OpenAI
+    API --> Cosmos
+    API --> KeyVault
+    
+    AppService --> API
+    AppService --> MCP
+    
+    Monitor --> API
+    Monitor --> MCP
+
+    style Crisis fill:#ff6b6b
+    style CBT fill:#845ec2
+    style Mindfulness fill:#00c9a7
+    style Companion fill:#4d9de0
+    style MCP fill:#0078d4
+    style OpenAI fill:#00a4ef
+    style Cosmos fill:#0078d4
+    style KeyVault fill:#0078d4
+    style AppService fill:#0078d4
+```
+
+### Architecture Flow
+
+1. **User Interaction:** User interacts via chat interface or voice with 3D avatar
+2. **API Gateway:** Express.js API receives requests, manages sessions
+3. **Agent Orchestration:** Orchestrator analyzes message context and crisis level
+4. **Agent Selection:** Routes to specialized agent (Crisis/CBT/Mindfulness/Companion)
+5. **MCP Integration:** Agent queries MCP server for domain knowledge and tools
+6. **AI Processing:** Azure OpenAI generates contextual, empathetic responses
+7. **Response Delivery:** Answer returned with agent metadata, emotion, and resources
+8. **Persistence:** Conversation stored in Cosmos DB for continuity
+
+---
+
 ## 🙏 ACKNOWLEDGMENTS
 
 - **Microsoft AI Dev Days** for inspiration

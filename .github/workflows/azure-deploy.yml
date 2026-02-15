@@ -1,0 +1,248 @@
+name: CI/CD Pipeline - VishAI Mental Health App
+
+on:
+  push:
+    branches: [main, Avatar]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20.x'
+  AZURE_WEBAPP_API: vishai-api
+  AZURE_WEBAPP_MCP: vishai-mcp
+  AZURE_STATICWEBAPP: vishai-frontend
+
+jobs:
+  # Build and Test Backend API
+  build-api:
+    name: Build & Test API
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/webapi
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: packages/webapi/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: npm run lint --if-present
+
+      - name: Run tests
+        run: npm test --if-present
+
+      - name: Upload API artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-build
+          path: packages/webapi/
+          retention-days: 1
+
+  # Build and Test MCP Server
+  build-mcp:
+    name: Build & Test MCP Server
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/mcp-server
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: packages/mcp-server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test --if-present
+
+      - name: Upload MCP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcp-build
+          path: packages/mcp-server/
+          retention-days: 1
+
+  # Build Frontend
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/webapp
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: packages/webapp/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ secrets.API_URL || 'http://localhost:3000' }}
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: packages/webapp/dist/
+          retention-days: 1
+
+  # Security Scanning
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run npm audit (API)
+        working-directory: packages/webapi
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Run npm audit (MCP)
+        working-directory: packages/mcp-server
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Run npm audit (Frontend)
+        working-directory: packages/webapp
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+  # Deploy to Azure App Service (API)
+  deploy-api:
+    name: Deploy API to Azure
+    runs-on: ubuntu-latest
+    needs: [build-api, security-scan]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.webapp-url }}
+    
+    steps:
+      - name: Download API artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: api-build
+          path: ./api
+
+      - name: Deploy to Azure Web App
+        id: deploy
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_API }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_API_PUBLISH_PROFILE }}
+          package: ./api
+
+  # Deploy to Azure App Service (MCP)
+  deploy-mcp:
+    name: Deploy MCP to Azure
+    runs-on: ubuntu-latest
+    needs: [build-mcp, security-scan]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.webapp-url }}
+    
+    steps:
+      - name: Download MCP artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mcp-build
+          path: ./mcp
+
+      - name: Deploy to Azure Web App
+        id: deploy
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_MCP }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_MCP_PUBLISH_PROFILE }}
+          package: ./mcp
+
+  # Deploy Frontend to Azure Static Web Apps
+  deploy-frontend:
+    name: Deploy Frontend to Azure
+    runs-on: ubuntu-latest
+    needs: [build-frontend, security-scan]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: ./dist
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: 'upload'
+          app_location: './dist'
+          skip_app_build: true
+
+  # Build and Push Docker Images
+  docker-build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Azure Container Registry
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.AZURE_CONTAINER_REGISTRY }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and push API image
+        run: |
+          docker build -f packages/webapi/Dockerfile -t ${{ secrets.AZURE_CONTAINER_REGISTRY }}/vishai-api:${{ github.sha }} -t ${{ secrets.AZURE_CONTAINER_REGISTRY }}/vishai-api:latest packages/webapi
+          docker push ${{ secrets.AZURE_CONTAINER_REGISTRY }}/vishai-api --all-tags
+
+      - name: Build and push MCP image
+        run: |
+          docker build -f packages/mcp-server/Dockerfile -t ${{ secrets.AZURE_CONTAINER_REGISTRY }}/vishai-mcp:${{ github.sha }} -t ${{ secrets.AZURE_CONTAINER_REGISTRY }}/vishai-mcp:latest packages/mcp-server
+          docker push ${{ secrets.AZURE_CONTAINER_REGISTRY }}/vishai-mcp --all-tags
+
+      - name: Build and push Frontend image
+        run: |
+          docker build -f packages/webapp/Dockerfile -t ${{ secrets.AZURE_CONTAINER_REGISTRY }}/vishai-frontend:${{ github.sha }} -t ${{ secrets.AZURE_CONTAINER_REGISTRY }}/vishai-frontend:latest packages/webapp
+          docker push ${{ secrets.AZURE_CONTAINER_REGISTRY }}/vishai-frontend --all-tags

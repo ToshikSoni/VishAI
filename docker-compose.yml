@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # Backend API Service
+  api:
+    build:
+      context: ./packages/webapi
+      dockerfile: Dockerfile
+    container_name: vishai-api
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - MCP_SERVER_URL=http://mcp:3001
+      - AZURE_INFERENCE_SDK_KEY=${AZURE_INFERENCE_SDK_KEY}
+      - INSTANCE_NAME=${INSTANCE_NAME}
+      - DEPLOYMENT_NAME=${DEPLOYMENT_NAME}
+      - COSMOS_DB_ENDPOINT=${COSMOS_DB_ENDPOINT}
+      - COSMOS_DB_KEY=${COSMOS_DB_KEY}
+      - COSMOS_DB_DATABASE=vishai_db
+    depends_on:
+      - mcp
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # MCP Server Service
+  mcp:
+    build:
+      context: ./packages/mcp-server
+      dockerfile: Dockerfile
+    container_name: vishai-mcp
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend Web App
+  frontend:
+    build:
+      context: ./packages/webapp
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:3000
+    container_name: vishai-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+networks:
+  default:
+    name: vishai-network

@@ -196,6 +196,80 @@ export class AgentOrchestrator {
   }
 
   /**
+   * Check if agent handoff is recommended based on conversation context
+   * @param {string} message - Current user message
+   * @param {string} currentAgentRole - Currently active agent
+   * @returns {object} Handoff recommendation
+   */
+  shouldHandoffAgent(message, currentAgentRole) {
+    const messageLower = message.toLowerCase();
+
+    // Crisis agent should never hand off (user safety priority)
+    if (currentAgentRole === 'crisis-counselor') {
+      return { shouldHandoff: false };
+    }
+
+    // Check if user needs crisis support while with another agent
+    const hasCrisisKeyword = agents.crisis.triggerKeywords.some(keyword => 
+      messageLower.includes(keyword)
+    );
+    if (hasCrisisKeyword && currentAgentRole !== 'crisis-counselor') {
+      return {
+        shouldHandoff: true,
+        targetAgent: 'crisis-counselor',
+        reason: 'crisis-detected',
+        handoffMessage: "I'm noticing you're expressing thoughts that concern me deeply. Let me connect you with our crisis counselor who specializes in immediate support."
+      };
+    }
+
+    // Check if user explicitly requests different type of help
+    if (messageLower.includes('breathing') || messageLower.includes('calm down') || messageLower.includes('grounding')) {
+      if (currentAgentRole !== 'mindfulness-coach') {
+        return {
+          shouldHandoff: true,
+          targetAgent: 'mindfulness-coach', 
+          reason: 'mindfulness-requested',
+          handoffMessage: "I can help with that, or I can connect you with our mindfulness coach who specializes in calming techniques and breathing exercises. Would you like that?"
+        };
+      }
+    }
+
+    if (messageLower.includes('negative thoughts') || messageLower.includes('cognitive') || messageLower.includes('thinking patterns')) {
+      if (currentAgentRole !== 'cbt-therapist') {
+        return {
+          shouldHandoff: true,
+          targetAgent: 'cbt-therapist',
+          reason: 'cbt-requested',
+          handoffMessage: "Those thought patterns sound like something our CBT therapist could help you work through more effectively. Would you like me to connect you?"
+        };
+      }
+    }
+
+    return { shouldHandoff: false };
+  }
+
+  /**
+   * Generate smooth handoff message when switching agents
+   * @param {string} fromAgent - Previous agent role
+   * @param {string} toAgent - New agent role
+   * @returns {string} Handoff introduction message
+   */
+  generateHandoffMessage(fromAgent, toAgent) {
+    const handoffMessages = {
+      'companion-crisis': "I'm connecting you with our crisis counselor right now. They're specially trained for these situations and are here to help.",
+      'companion-cbt': "Let me introduce you to our CBT therapist who can help you work through these thought patterns.",
+      'companion-mindfulness': "Our mindfulness coach can guide you through some calming techniques. They're excellent at this.",
+      'cbt-crisis': "I'm noticing this might need immediate crisis support. Let me connect you with our crisis counselor right away.",
+      'cbt-mindfulness': "For immediate relief, our mindfulness coach can guide you through grounding exercises.",
+      'mindfulness-crisis': "I'm connecting you with our crisis counselor who can provide the urgent support you need.",
+      'mindfulness-cbt': "For deeper work on those thought patterns, our CBT therapist would be perfect."
+    };
+
+    const key = `${fromAgent}-${toAgent}`;
+    return handoffMessages[key] || `I'm connecting you with a specialist who can help better with your specific needs.`;
+  }
+
+  /**
    * Get the emotion for avatar based on current agent
    */
   getAgentEmotion() {
@@ -213,6 +287,22 @@ export class AgentOrchestrator {
       expertise: this.activeAgent?.expertise || [],
       agentHistory: this.conversationContext.agentHistory
     };
+  }
+
+  /**
+   * Get handoff context for agent system prompts
+   */
+  getHandoffContext() {
+    if (this.conversationContext.agentHistory.length <= 1) {
+      return '';
+    }
+
+    const previousAgent = this.conversationContext.agentHistory[this.conversationContext.agentHistory.length - 2];
+    if (!previousAgent || previousAgent.agent === this.activeAgent?.role) {
+      return '';
+    }
+
+    return `\n\n[HANDOFF NOTE: User was previously speaking with ${previousAgent.agent} agent. Acknowledge the transition smoothly and build on any previous conversation context.]`;
   }
 
   /**

@@ -1,0 +1,168 @@
+# Azure App Service Deployment Configuration for VishAI
+# This file configures deployment of the VishAI multi-agent mental health system
+
+runtime:
+  language: node
+  version: '20.x'
+
+# Application Configuration
+app:
+  name: vishai-mental-health
+  region: westus2
+  tier: Standard_S1
+
+# Services to Deploy
+services:
+  # Backend API Service
+  - name: vishai-api
+    type: webapp
+    path: ./packages/webapi
+    runtime: node:20
+    build:
+      commands:
+        - npm install
+    start:
+      command: npm start
+    port: 3000
+    env:
+      - NODE_ENV=production
+      - API_VERSION=1.0.0
+    
+  # MCP Server Service
+  - name: vishai-mcp
+    type: webapp
+    path: ./packages/mcp-server
+    runtime: node:20
+    build:
+      commands:
+        - npm install
+    start:
+      command: npm start
+    port: 3001
+    env:
+      - NODE_ENV=production
+      - MCP_VERSION=1.0.0
+
+  # Frontend Static Web App
+  - name: vishai-frontend
+    type: staticwebapp
+    path: ./packages/webapp
+    runtime: node:20
+    build:
+      commands:
+        - npm install
+        - npm run build
+      output: dist
+    routes:
+      - route: "/*"
+        rewrite: "/index.html"
+
+# Azure Services Integration
+azure_services:
+  # Azure OpenAI
+  openai:
+    name: vishai-openai
+    location: westus2
+    sku: S0
+    deployments:
+      - name: gpt-4o
+        model: gpt-4o
+        version: "2024-08-06"
+        capacity: 10
+
+  # Azure Cosmos DB
+  cosmosdb:
+    name: vishai-cosmos
+    location: westus2
+    database_name: vishai_db
+    containers:
+      - name: conversations
+        partition_key: /sessionId
+      - name: user_profiles
+        partition_key: /userId
+      - name: agent_interactions
+        partition_key: /agentRole
+
+  # Azure Key Vault
+  keyvault:
+    name: vishai-keyvault
+    location: westus2
+    secrets:
+      - AZURE_OPENAI_KEY
+      - AZURE_OPENAI_ENDPOINT
+      - COSMOS_DB_CONNECTION
+      - SESSION_SECRET
+
+  # Azure Monitor & Application Insights
+  monitoring:
+    application_insights:
+      name: vishai-insights
+      location: westus2
+    log_analytics:
+      name: vishai-logs
+      retention_days: 30
+
+  # Azure Container Registry (for containerized deployment)
+  container_registry:
+    name: vishairegistry
+    sku: Basic
+    admin_enabled: true
+
+# Scaling Configuration
+scaling:
+  min_instances: 1
+  max_instances: 10
+  rules:
+    - metric: cpu_percentage
+      threshold: 70
+      scale_out: 2
+    - metric: memory_percentage
+      threshold: 80
+      scale_out: 2
+
+# Health Check Configuration
+health_check:
+  path: /health
+  interval: 60
+  timeout: 10
+  unhealthy_threshold: 3
+
+# Networking
+networking:
+  cors:
+    allowed_origins:
+      - https://vishai-frontend.azurestaticapps.net
+      - http://localhost:5173
+    allowed_methods:
+      - GET
+      - POST
+      - OPTIONS
+    allowed_headers:
+      - Content-Type
+      - Authorization
+
+# Environment Variables (use Key Vault references in production)
+environment:
+  # Azure OpenAI
+  AZURE_INFERENCE_SDK_KEY: "@Microsoft.KeyVault(SecretUri=https://vishai-keyvault.vault.azure.net/secrets/AZURE-OPENAI-KEY/)"
+  INSTANCE_NAME: "@Microsoft.KeyVault(SecretUri=https://vishai-keyvault.vault.azure.net/secrets/AZURE-OPENAI-ENDPOINT/)"
+  DEPLOYMENT_NAME: gpt-4o
+  
+  # Cosmos DB
+  COSMOS_DB_ENDPOINT: "@Microsoft.KeyVault(SecretUri=https://vishai-keyvault.vault.azure.net/secrets/COSMOS-DB-ENDPOINT/)"
+  COSMOS_DB_KEY: "@Microsoft.KeyVault(SecretUri=https://vishai-keyvault.vault.azure.net/secrets/COSMOS-DB-KEY/)"
+  COSMOS_DB_DATABASE: vishai_db
+  
+  # Application Configuration
+  MCP_SERVER_URL: https://vishai-mcp.azurewebsites.net
+  API_BASE_URL: https://vishai-api.azurewebsites.net
+  
+  # Monitoring
+  APPLICATIONINSIGHTS_CONNECTION_STRING: "@Microsoft.KeyVault(SecretUri=https://vishai-keyvault.vault.azure.net/secrets/APP-INSIGHTS-CONNECTION/)"
+
+# Tags for resource management
+tags:
+  project: VishAI
+  hackathon: AI-Dev-Days-2026
+  category: mental-health
+  hero_tech: Azure-MCP
