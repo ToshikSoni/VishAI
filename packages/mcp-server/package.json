@@ -1,0 +1,24 @@
+{
+  "name": "@vishai/mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for VishAI mental health resources and tools",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "express": "^5.1.0",
+    "cors": "^2.8.5"
+  },
+  "keywords": [
+    "mcp",
+    "mental-health",
+    "ai-agent",
+    "azure"
+  ],
+  "author": "",
+  "license": "AGPL-3.0"
+}

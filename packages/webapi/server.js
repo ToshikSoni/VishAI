@@ -10,11 +10,20 @@ import multer from "multer";
 import { BufferMemory } from "langchain/memory";
 import { ChatMessageHistory } from "langchain/stores/message/in_memory";
 import { AzureOpenAI } from "openai";
+import { AgentOrchestrator } from "./agents/orchestrator.js";
+import { MCPClient } from "./agents/mcp-client.js";
 
 dotenv.config();
 
 // Initialize session memories storage
 const sessionMemories = {};
+
+// Initialize session orchestrators (one per session)
+const sessionOrchestrators = {};
+
+// Initialize MCP Client
+const mcpClient = new MCPClient(process.env.MCP_SERVER_URL || 'http://localhost:3001');
+let mcpConnected = false;
 
 // Initialize Express app
 const app = express();
@@ -564,24 +573,39 @@ app.post("/chat", async (req, res) => {
     } = req.body;
     const talkMode = mode.toLowerCase() === "talk";
 
+    // Get memory and orchestrator for this session
     const memory = getSessionMemory(sessionId);
+    const orchestrator = getSessionOrchestrator(sessionId);
     const memoryVars = await memory.loadMemoryVariables({});
 
+    // Use orchestrator to select appropriate agent
+    const selectedAgent = await orchestrator.selectAgent(userMessage, sessionId);
+    console.log(`🤖 Selected Agent: ${selectedAgent.name} (${selectedAgent.role})`);
+
+    // Get agent-specific system prompt with user context and MCP context
+    let systemContent = await orchestrator.getAgentSystemPrompt(selectedAgent, userInfo);
+    
+    // Add MCP knowledge context if available
+    if (mcpConnected) {
+      const mcpContext = await orchestrator.getMCPContext(selectedAgent, userMessage);
+      systemContent += mcpContext;
+    }
+
+    // Add RAG sources if enabled (existing functionality)
     const isCrisis = containsCrisisLanguage(userMessage);
     const sources = useRAG ? await retrieveRelevantContent(userMessage) : [];
+    if (useRAG && sources.length > 0) {
+      const sourcesText = sources.map((s) => s.content).join("\n\n");
+      systemContent += `\n\n=== UPLOADED DOCUMENTS & MENTAL HEALTH RESOURCES ===\n${sourcesText}\n`;
+    }
 
-    const userContext = buildUserContext(userInfo);
+    // Add talk mode instruction if applicable
     const talkModeCue = talkMode
-      ? `Respond as if you are speaking aloud. Keep replies warm, conversational, and concise (no more than three short sentences). Invite the person to continue sharing rather than delivering long monologues.`
+      ? `\n\n=== VOICE MODE ===\nYou are currently in VOICE mode. Respond as if speaking aloud. Keep replies warm, conversational, and concise (no more than three short sentences). Invite the person to continue sharing rather than delivering long monologues.`
       : "";
+    systemContent += talkModeCue;
 
-    const systemContent = buildSystemPrompt(
-      isCrisis,
-      useRAG,
-      sources,
-      userContext,
-      talkModeCue
-    );
+    // Build messages with agent system prompt
     const messages = buildMessages(systemContent, memoryVars, userMessage);
 
     console.log(
@@ -602,10 +626,11 @@ app.post("/chat", async (req, res) => {
     const message = completion.choices[0]?.message;
     const responseText = message?.content || message?.audio?.transcript || "";
     
-    // Detect emotion from the response
-    const emotion = detectEmotion(responseText);
+    // Use agent's emotion instead of detecting it
+    const emotion = orchestrator.getAgentEmotion();
+    const agentMetadata = orchestrator.getAgentMetadata();
 
-    console.log(`📝 Text chat response - Text length: ${responseText.length}, Emotion: ${emotion}`);
+    console.log(`📝 Agent ${agentMetadata.agentName} response - Text length: ${responseText.length}, Emotion: ${emotion}`);
 
     await memory.saveContext({ input: userMessage }, { output: responseText });
 
@@ -615,6 +640,7 @@ app.post("/chat", async (req, res) => {
       isCrisis,
       resources: isCrisis ? getCrisisResources() : [],
       emotion,
+      agent: agentMetadata, // NEW: Include agent information
     });
   } catch (err) {
     console.error("============ ERROR IN /CHAT ENDPOINT ============");
@@ -634,6 +660,8 @@ app.post("/chat", async (req, res) => {
         sources: [],
         isCrisis,
         resources: isCrisis ? getCrisisResources() : [],
+        emotion: "concern",
+        agent: { agentName: "Crisis Counselor", agentRole: "crisis-counselor" },
       });
     }
 
@@ -786,9 +814,30 @@ app.post("/chat-audio", async (req, res) => {
   }
 });
 
+// Helper function to get or create orchestrator for session
+function getSessionOrchestrator(sessionId) {
+  if (!sessionOrchestrators[sessionId]) {
+    sessionOrchestrators[sessionId] = new AgentOrchestrator(mcpConnected ? mcpClient : null);
+    console.log(`🤖 Created new orchestrator for session: ${sessionId}`);
+  }
+  return sessionOrchestrators[sessionId];
+}
+
 // Start server
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, async () => {
   console.log(`🚀 Vish AI API running on port ${PORT}`);
   console.log(`✓ Environment configured`);
+  
+  // Initialize MCP connection
+  console.log(`\n🔌 Attempting to connect to MCP Server...`);
+  mcpConnected = await mcpClient.connect();
+  
+  if (mcpConnected) {
+    console.log(`✅ Multi-Agent System ENABLED with MCP integration`);
+    console.log(`🤖 Available agents: Crisis Counselor, CBT Therapist, Mindfulness Coach, Companion`);
+  } else {
+    console.log(`⚠️  Multi-Agent System running in DEGRADED mode (no MCP integration)`);
+    console.log(`🤖 Agent orchestration available, but without MCP tools/resources`);
+  }
 });
