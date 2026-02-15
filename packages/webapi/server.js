@@ -158,12 +158,21 @@ function detectEmotion(responseText) {
   return "neutral";
 }
 
-// Initialize Azure OpenAI client
+// Initialize Azure OpenAI clients - separate for text and audio
+// Text client for regular chat (GPT-4o or GPT-5 without audio modalities)
+const textClient = new AzureOpenAI({
+  apiKey: process.env.AZURE_INFERENCE_SDK_KEY,
+  endpoint: `https://${process.env.INSTANCE_NAME}.openai.azure.com/`,
+  apiVersion: "2025-01-01-preview",
+  deployment: process.env.TEXT_DEPLOYMENT_NAME || process.env.DEPLOYMENT_NAME, // Fallback to main deployment
+});
+
+// Audio client for voice chat (GPT-audio with audio modalities)
 const audioClient = new AzureOpenAI({
   apiKey: process.env.AZURE_INFERENCE_SDK_KEY,
   endpoint: `https://${process.env.INSTANCE_NAME}.openai.azure.com/`,
   apiVersion: "2025-01-01-preview",
-  deployment: process.env.DEPLOYMENT_NAME,
+  deployment: process.env.AUDIO_DEPLOYMENT_NAME || process.env.DEPLOYMENT_NAME, // Fallback to main deployment
 });
 
 // Constants
@@ -614,13 +623,12 @@ app.post("/chat", async (req, res) => {
       "messages"
     );
 
-    const completion = await audioClient.chat.completions.create({
-      model: process.env.DEPLOYMENT_NAME,
+    // Use text client for regular chat (no audio modalities)
+    const completion = await textClient.chat.completions.create({
+      model: process.env.TEXT_DEPLOYMENT_NAME || process.env.DEPLOYMENT_NAME,
       messages,
       max_tokens: 4096,
       temperature: 0.7,
-      modalities: ["text", "audio"],
-      audio: { voice: "sage", format: "mp3" },
     });
 
     const message = completion.choices[0]?.message;
@@ -727,22 +735,36 @@ app.post("/chat-audio", async (req, res) => {
       userInfo = null,
     } = req.body;
 
+    // Get memory and orchestrator for this session (SAME AS TEXT CHAT)
     const memory = getSessionMemory(sessionId);
+    const orchestrator = getSessionOrchestrator(sessionId);
     const memoryVars = await memory.loadMemoryVariables({});
 
+    // Use orchestrator to select appropriate agent (INTEGRATED)
+    const selectedAgent = await orchestrator.selectAgent(userMessage, sessionId);
+    console.log(`🎤 Audio Mode - Selected Agent: ${selectedAgent.name} (${selectedAgent.role})`);
+
+    // Get agent-specific system prompt with user context and MCP context
+    let systemContent = await orchestrator.getAgentSystemPrompt(selectedAgent, userInfo);
+    
+    // Add MCP knowledge context if available
+    if (mcpConnected) {
+      const mcpContext = await orchestrator.getMCPContext(selectedAgent, userMessage);
+      systemContent += mcpContext;
+    }
+
+    // Add RAG sources if enabled
     const isCrisis = containsCrisisLanguage(userMessage);
     const sources = useRAG ? await retrieveRelevantContent(userMessage) : [];
+    if (useRAG && sources.length > 0) {
+      const sourcesText = sources.map((s) => s.content).join("\n\n");
+      systemContent += `\n\n=== UPLOADED DOCUMENTS & MENTAL HEALTH RESOURCES ===\n${sourcesText}\n`;
+    }
 
-    const userContext = buildUserContext(userInfo);
-    const audioInstruction = `You are speaking aloud in a warm, empathetic, and conversational tone. Keep responses natural and emotionally supportive, as if you're a caring friend having a voice conversation. Use the "Sage" voice style - calm, wise, and reassuring.`;
+    // Add audio-specific instruction
+    const audioInstruction = `\n\n=== VOICE MODE ===\nYou are speaking aloud in a warm, empathetic, and conversational tone. Keep responses natural and emotionally supportive, as if you're a caring friend having a voice conversation. Responses should be concise (2-4 short sentences) and conversational. Use the "Sage" voice style - calm, wise, and reassuring.`;
+    systemContent += audioInstruction;
 
-    const systemContent = buildSystemPrompt(
-      isCrisis,
-      useRAG,
-      sources,
-      userContext,
-      audioInstruction
-    );
     const messages = buildMessages(systemContent, memoryVars, userMessage);
 
     console.log(
@@ -751,8 +773,9 @@ app.post("/chat-audio", async (req, res) => {
       "messages"
     );
 
+    // Use audio client with audio modalities
     const completion = await audioClient.chat.completions.create({
-      model: process.env.DEPLOYMENT_NAME,
+      model: process.env.AUDIO_DEPLOYMENT_NAME || process.env.DEPLOYMENT_NAME,
       messages,
       max_tokens: 4096,
       temperature: 0.7,
@@ -764,11 +787,12 @@ app.post("/chat-audio", async (req, res) => {
     const responseText = message?.content || message?.audio?.transcript || "";
     const audioData = message?.audio?.data;
     
-    // Detect emotion from the response
-    const emotion = detectEmotion(responseText);
+    // Use agent's emotion instead of detecting it
+    const emotion = orchestrator.getAgentEmotion();
+    const agentMetadata = orchestrator.getAgentMetadata();
 
     console.log(
-      `✅ Audio response - Text: ${responseText.length} chars, Audio: ${
+      `✅ Audio response - Agent: ${agentMetadata.agentName}, Text: ${responseText.length} chars, Audio: ${
         audioData ? "Yes" : "No"
       }, Emotion: ${emotion}`
     );
@@ -782,6 +806,7 @@ app.post("/chat-audio", async (req, res) => {
       isCrisis,
       resources: isCrisis ? getCrisisResources() : [],
       emotion,
+      agent: agentMetadata, // Include agent information for audio mode too
     });
   } catch (err) {
     console.error("============ ERROR IN /CHAT-AUDIO ENDPOINT ============");
@@ -801,6 +826,8 @@ app.post("/chat-audio", async (req, res) => {
         sources: [],
         isCrisis,
         resources: isCrisis ? getCrisisResources() : [],
+        emotion: "concern",
+        agent: { agentName: "Crisis Counselor", agentRole: "crisis-counselor" },
       });
     }
 
