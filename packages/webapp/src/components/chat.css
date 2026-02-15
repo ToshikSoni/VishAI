@@ -602,6 +602,44 @@ body {
     flex-direction: column;
 }
 
+/* Agent Badge Styling */
+.agent-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 12px;
+    width: fit-content;
+    transition: all 0.3s ease;
+}
+
+.agent-badge.crisis-counselor {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ff8787 100%);
+    color: white;
+    box-shadow: 0 2px 6px rgba(255, 107, 107, 0.3);
+}
+
+.agent-badge.cbt-therapist {
+    background: linear-gradient(135deg, #845ec2 0%, #9d7fd8 100%);
+    color: white;
+    box-shadow: 0 2px 6px rgba(132, 94, 194, 0.3);
+}
+
+.agent-badge.mindfulness-coach {
+    background: linear-gradient(135deg, #00c9a7 0%, #00d4b5 100%);
+    color: white;
+    box-shadow: 0 2px 6px rgba(0, 201, 167, 0.3);
+}
+
+.agent-badge.companion {
+    background: linear-gradient(135deg, #4d9de0 0%, #6bb1f0 100%);
+    color: white;
+    box-shadow: 0 2px 6px rgba(77, 157, 224, 0.3);
+}
+
 .message-sender {
     font-size: 0.9rem;
     font-weight: 600;

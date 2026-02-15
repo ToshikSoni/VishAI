@@ -7,7 +7,7 @@ const getApiUrl = () => {
                   window.location.hostname === "127.0.0.1";
   
   if (isLocal) {
-    return "http://localhost:3001";
+    return "http://localhost:3000";  // API server runs on port 3000 (MCP server on 3001)
   }
   
   // In production, try environment variable first

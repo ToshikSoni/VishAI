@@ -319,6 +319,13 @@ export class ChatInterface extends LitElement {
                     : ""}"
                 >
                   <div class="message-content">
+                    ${message.agent && message.agent.agentName && !message.isWelcome
+                      ? html`
+                          <div class="agent-badge ${message.agent.agentRole}">
+                            ${this._getAgentIcon(message.agent.agentRole)} ${message.agent.agentName}
+                          </div>
+                        `
+                      : ""}
                     <div class="message-text">
                       ${unsafeHTML(formatMarkdown(message.content))}
                     </div>
@@ -558,6 +565,16 @@ export class ChatInterface extends LitElement {
     this.showCrisisResources = false;
   }
 
+  _getAgentIcon(agentRole) {
+    const icons = {
+      'crisis-counselor': '🚨',
+      'cbt-therapist': '🧠',
+      'mindfulness-coach': '🧘',
+      'companion': '💙'
+    };
+    return icons[agentRole] || '💬';
+  }
+
   // Chat Management
   async _sendMessage(messageOverride = null, options = {}) {
     const outgoing = (messageOverride ?? this.inputMessage).trim();
@@ -601,6 +618,7 @@ export class ChatInterface extends LitElement {
           content: aiResponse.reply,
           sources: Array.isArray(aiResponse.sources) ? aiResponse.sources : [],
           talkMode: this.talkModeActive,
+          agent: aiResponse.agent || null,
         },
       ];
 
@@ -633,6 +651,7 @@ export class ChatInterface extends LitElement {
       console.error("Error calling model:", error);
 
       let errorMessage = "I'm sorry, I'm having trouble responding right now. ";
+      let showCrisis = false;
 
       if (
         error.message.includes("Failed to fetch") ||
@@ -643,15 +662,32 @@ export class ChatInterface extends LitElement {
       } else if (error.message.includes("API returned")) {
         errorMessage +=
           "The server encountered an error processing your request. ";
+      } else if (error.message.includes("content_filter") || error.message.includes("ResponsibleAIPolicyViolation")) {
+        // Content filter triggered - likely crisis content
+        errorMessage = "I hear you, and I want you to know that you don't have to face this alone. Please reach out to a crisis counselor who can provide immediate support.";
+        showCrisis = true;
       }
 
       errorMessage +=
-        "If you're feeling in crisis, please call a crisis service like 988 (in the US) or your local emergency number.";
+        " If you're feeling in crisis, please call a crisis service like 988 (in the US) or your local emergency number.";
 
       this.messages = [
         ...this.messages,
         { role: "assistant", content: errorMessage },
       ];
+
+      // Show crisis resources if content filter was triggered
+      if (showCrisis) {
+        this.crisisResources = [
+          { name: "National Suicide Prevention Lifeline", contact: "988" },
+          { name: "Crisis Text Line", contact: "Text HOME to 741741" },
+          {
+            name: "International Association for Suicide Prevention",
+            url: "https://www.iasp.info/resources/Crisis_Centres/",
+          },
+        ];
+        this.showCrisisResources = true;
+      }
     } finally {
       this.isLoading = false;
     }
