@@ -86,6 +86,69 @@ const crisisKeywords = [
   "take my own life",
 ];
 
+// Emotion detection based on response content
+function detectEmotion(responseText) {
+  const text = responseText.toLowerCase();
+  
+  // Empathy patterns
+  if (
+    /i (hear|understand|recognize) (you|that|how)/i.test(text) ||
+    /that sounds (really|incredibly|very) (difficult|hard|tough|painful)/i.test(text) ||
+    /i can (see|tell|sense) (how|that)/i.test(text)
+  ) {
+    return "empathy";
+  }
+  
+  // Concern patterns
+  if (
+    /i'm (worried|concerned) about/i.test(text) ||
+    /that's concerning/i.test(text) ||
+    /please (reach out|call|contact)/i.test(text) ||
+    /crisis|988|emergency/i.test(text)
+  ) {
+    return "concerned";
+  }
+  
+  // Encouraging patterns
+  if (
+    /(you can|you're able to|you have the strength)/i.test(text) ||
+    /(proud of you|great job|well done|that's wonderful)/i.test(text) ||
+    /you've (got this|made progress|come so far)/i.test(text) ||
+    /🎉|✨|💪|👏/.test(text)
+  ) {
+    return "encouraging";
+  }
+  
+  // Happy/Positive patterns
+  if (
+    /(wonderful|great|excellent|fantastic|amazing) (news|to hear)/i.test(text) ||
+    /(so glad|so happy|delighted|excited) (to|that)/i.test(text) ||
+    /😊|🙂|❤️/.test(text)
+  ) {
+    return "happy";
+  }
+  
+  // Sad/Compassionate patterns
+  if (
+    /(so sorry|deeply sorry|my heart)/i.test(text) ||
+    /that (must be|sounds) (so |very )?(painful|difficult|heartbreaking)/i.test(text)
+  ) {
+    return "sad";
+  }
+  
+  // Thoughtful patterns
+  if (
+    /let's (think about|explore|consider)/i.test(text) ||
+    /(what if|have you considered|it might help to)/i.test(text) ||
+    /🤔/.test(text)
+  ) {
+    return "thoughtful";
+  }
+  
+  // Default to neutral
+  return "neutral";
+}
+
 // Initialize Azure OpenAI client
 const audioClient = new AzureOpenAI({
   apiKey: process.env.AZURE_INFERENCE_SDK_KEY,
@@ -538,8 +601,11 @@ app.post("/chat", async (req, res) => {
 
     const message = completion.choices[0]?.message;
     const responseText = message?.content || message?.audio?.transcript || "";
+    
+    // Detect emotion from the response
+    const emotion = detectEmotion(responseText);
 
-    console.log(`📝 Text chat response - Text length: ${responseText.length}`);
+    console.log(`📝 Text chat response - Text length: ${responseText.length}, Emotion: ${emotion}`);
 
     await memory.saveContext({ input: userMessage }, { output: responseText });
 
@@ -548,6 +614,7 @@ app.post("/chat", async (req, res) => {
       sources: sources.map((s) => s.content),
       isCrisis,
       resources: isCrisis ? getCrisisResources() : [],
+      emotion,
     });
   } catch (err) {
     console.error("============ ERROR IN /CHAT ENDPOINT ============");
@@ -668,11 +735,14 @@ app.post("/chat-audio", async (req, res) => {
     const message = completion.choices[0]?.message;
     const responseText = message?.content || message?.audio?.transcript || "";
     const audioData = message?.audio?.data;
+    
+    // Detect emotion from the response
+    const emotion = detectEmotion(responseText);
 
     console.log(
       `✅ Audio response - Text: ${responseText.length} chars, Audio: ${
         audioData ? "Yes" : "No"
-      }`
+      }, Emotion: ${emotion}`
     );
 
     await memory.saveContext({ input: userMessage }, { output: responseText });
@@ -683,6 +753,7 @@ app.post("/chat-audio", async (req, res) => {
       sources: sources.map((s) => s.content),
       isCrisis,
       resources: isCrisis ? getCrisisResources() : [],
+      emotion,
     });
   } catch (err) {
     console.error("============ ERROR IN /CHAT-AUDIO ENDPOINT ============");

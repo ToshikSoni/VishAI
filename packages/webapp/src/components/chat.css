@@ -306,6 +306,44 @@ body {
     display: none;
 }
 
+/* Avatar Container */
+.avatar-container {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 280px;
+    height: 320px;
+    z-index: 50;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    transition: all 0.3s ease;
+}
+
+.avatar-container:hover {
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+    transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+    .avatar-container {
+        width: 200px;
+        height: 240px;
+        top: 10px;
+        right: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .avatar-container {
+        width: 150px;
+        height: 180px;
+        top: 5px;
+        right: 5px;
+    }
+}
+
 .chat-header {
     background: linear-gradient(to right, var(--primary-color), #8fc6b9);
     color: white;

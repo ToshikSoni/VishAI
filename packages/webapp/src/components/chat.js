@@ -8,6 +8,7 @@ import {
 import { formatMarkdown } from "../utils/markdownFormatter.js";
 import { API_URL, fetchWithRetry } from "../config/api.js";
 import "./chat.css";
+import "./avatar.ts";
 
 export class ChatInterface extends LitElement {
   static get properties() {
@@ -33,6 +34,8 @@ export class ChatInterface extends LitElement {
       currentChatId: { type: String },
       toastMessage: { type: String },
       showToast: { type: Boolean },
+      currentEmotion: { type: String },
+      showAvatar: { type: Boolean },
     };
   }
 
@@ -75,6 +78,10 @@ export class ChatInterface extends LitElement {
     this.isUploadingDoc = false;
 
     // Toast notification
+    
+    // Avatar
+    this.currentEmotion = "neutral";
+    this.showAvatar = true;
     this.toastMessage = "";
     this.showToast = false;
   }
@@ -222,6 +229,19 @@ export class ChatInterface extends LitElement {
         </div>
 
         <div class="chat-container">
+          <!-- 3D Avatar -->
+          ${this.showAvatar
+            ? html`
+                <div class="avatar-container">
+                  <avatar-component
+                    .emotion=${this.currentEmotion}
+                    .isSpeaking=${this.isSpeaking}
+                    .isListening=${this.isListening}
+                  ></avatar-component>
+                </div>
+              `
+            : ""}
+          
           <!-- Crisis Resources Modal -->
           ${this.showCrisisResources
             ? html`
@@ -565,7 +585,14 @@ export class ChatInterface extends LitElement {
         replyLength: aiResponse.reply?.length,
         hasAudio: !!aiResponse.audioData,
         talkMode: this.talkModeActive,
+        emotion: aiResponse.emotion,
       });
+      
+      // Update avatar emotion
+      if (aiResponse.emotion) {
+        this.currentEmotion = aiResponse.emotion;
+        this._updateAvatarEmotion(aiResponse.emotion);
+      }
 
       this.messages = [
         ...this.messages,
@@ -709,7 +736,13 @@ export class ChatInterface extends LitElement {
     };
 
     this.recognition.onerror = (event) => {
+      console.log("Speech recognition error:", event.error);
       if (event.error === "no-speech") return;
+      if (event.error === "network") {
+        // Network error is common and can be ignored, speech still works
+        console.warn("Speech network warning (can be ignored)");
+        return;
+      }
       this.speechError = "Speech recognition error: " + event.error;
       this.talkModeActive = false;
       this._stopListening();
@@ -729,6 +762,7 @@ export class ChatInterface extends LitElement {
     if (!this.recognition || this.isListening) return;
     try {
       this.recognition.start();
+      this._updateAvatarListening(true);
     } catch (error) {
       // Ignore errors when recognition is already running
     }
@@ -742,6 +776,7 @@ export class ChatInterface extends LitElement {
       // Ignore stop errors
     }
     this.isListening = false;
+    this._updateAvatarListening(false);
     this.requestUpdate();
   }
 
@@ -780,10 +815,14 @@ export class ChatInterface extends LitElement {
 
       const audio = new Audio(audioUrl);
       this.currentAudio = audio;
+      
+      // Connect audio to avatar for lip sync
+      this._connectAudioToAvatar(audio);
 
       audio.onplay = () => {
         this.isSpeaking = true;
         this._stopListening();
+        this._updateAvatarSpeaking(true);
         this.requestUpdate();
       };
 
@@ -791,6 +830,7 @@ export class ChatInterface extends LitElement {
         this.isSpeaking = false;
         URL.revokeObjectURL(audioUrl);
         this.currentAudio = null;
+        this._updateAvatarSpeaking(false);
         this.requestUpdate();
         if (this.talkModeActive) this._startListening();
       };
@@ -822,12 +862,14 @@ export class ChatInterface extends LitElement {
     utterance.onstart = () => {
       this.isSpeaking = true;
       this._stopListening();
+      this._updateAvatarSpeaking(true);
       this.requestUpdate();
       this._scheduleBargeInResume();
     };
 
     const resumeListening = () => {
       this.isSpeaking = false;
+      this._updateAvatarSpeaking(false);
       this.requestUpdate();
       if (this.talkModeActive) this._startListening();
     };
@@ -848,6 +890,51 @@ export class ChatInterface extends LitElement {
         this._startListening();
       }
     }, 600);
+  }
+
+  // Avatar Control Methods
+  
+  _getAvatar() {
+    return this.querySelector("avatar-component");
+  }
+  
+  _updateAvatarEmotion(emotion) {
+    console.log("💬 Chat received emotion from backend:", emotion);
+    const avatar = this._getAvatar();
+    if (avatar && avatar.setEmotion) {
+      avatar.setEmotion(emotion);
+    } else {
+      console.warn("⚠️ Avatar not found or setEmotion not available");
+    }
+  }
+  
+  _updateAvatarSpeaking(speaking) {
+    const avatar = this._getAvatar();
+    if (avatar) {
+      if (speaking) {
+        avatar.speak();
+      } else {
+        avatar.stopSpeaking();
+      }
+    }
+  }
+  
+  _updateAvatarListening(listening) {
+    const avatar = this._getAvatar();
+    if (avatar) {
+      if (listening) {
+        avatar.listen();
+      } else {
+        avatar.stopListening();
+      }
+    }
+  }
+  
+  _connectAudioToAvatar(audioElement) {
+    const avatar = this._getAvatar();
+    if (avatar && avatar.connectAudio) {
+      avatar.connectAudio(audioElement);
+    }
   }
 
   // User Info Methods
