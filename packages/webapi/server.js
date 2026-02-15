@@ -12,6 +12,7 @@ import { ChatMessageHistory } from "langchain/stores/message/in_memory";
 import { AzureOpenAI } from "openai";
 import { AgentOrchestrator } from "./agents/orchestrator.js";
 import { MCPClient } from "./agents/mcp-client.js";
+import AzureSpeechAvatarService from "./services/azure-speech-avatar.js";
 
 dotenv.config();
 
@@ -24,6 +25,9 @@ const sessionOrchestrators = {};
 // Initialize MCP Client
 const mcpClient = new MCPClient(process.env.MCP_SERVER_URL || 'http://localhost:3001');
 let mcpConnected = false;
+
+// Initialize Azure Speech Avatar Service (for real-time avatar)
+const avatarService = new AzureSpeechAvatarService();
 
 // Initialize Express app
 const app = express();
@@ -726,6 +730,28 @@ app.post("/clear-memory", (req, res) => {
   res.json({ success: true, message: "Memory cleared successfully" });
 });
 
+// Get ICE server config for Azure Speech Avatar WebRTC connection
+app.get("/avatar/ice-config", async (req, res) => {
+  try {
+    const iceConfig = await avatarService.getICEServerConfig();
+    res.json(iceConfig);
+  } catch (error) {
+    console.error("❌ Failed to get ICE config:", error);
+    res.status(500).json({ error: "Failed to get ICE server configuration" });
+  }
+});
+
+// Get avatar configuration (character, style, voice)
+app.get("/avatar/config", (req, res) => {
+  const agentRole = req.query.agentRole || null;
+  const config = avatarService.getAvatarConfig(agentRole);
+  res.json({
+    ...config,
+    speechKey: process.env.AZURE_SPEECH_KEY,
+    speechRegion: process.env.AZURE_SPEECH_REGION || 'westus2',
+  });
+});
+
 app.post("/chat-audio", async (req, res) => {
   try {
     const {
@@ -738,12 +764,6 @@ app.post("/chat-audio", async (req, res) => {
     // Get memory and orchestrator for this session (SAME AS TEXT CHAT)
     const memory = getSessionMemory(sessionId);
     const orchestrator = getSessionOrchestrator(sessionId);
-    const memoryVars = await memory.loadMemoryVariables({});
-
-    // Use orchestrator to select appropriate agent (INTEGRATED)
-    const selectedAgent = await orchestrator.selectAgent(userMessage, sessionId);
-    console.log(`🎤 Audio Mode - Selected Agent: ${selectedAgent.name} (${selectedAgent.role})`);
-
     // Get agent-specific system prompt with user context and MCP context
     let systemContent = await orchestrator.getAgentSystemPrompt(selectedAgent, userInfo);
     
@@ -787,47 +807,35 @@ app.post("/chat-audio", async (req, res) => {
       `✅ Text response generated - Agent: ${selectedAgent.name}, Length: ${responseText.length} chars`
     );
 
-    // STEP 2: Use AUDIO CLIENT (GPT-audio) ONLY for audio generation (TTS)
-    const audioCompletion = await audioClient.chat.completions.create({
-      model: process.env.AUDIO_DEPLOYMENT_NAME || process.env.DEPLOYMENT_NAME,
-      messages: [
-        {
-          role: "system",
-          content: "You are a voice assistant. Convert the following text to speech with a warm, empathetic tone using the Sage voice.",
-        },
-        {
-          role: "user",
-          content: responseText,
-        },
-      ],
-      max_tokens: 100, // Minimal tokens since we're just doing TTS
-      temperature: 0.3,
-      modalities: ["text", "audio"],
-      audio: { voice: "sage", format: "mp3" },
-    });
-
-    const audioData = audioCompletion.choices[0]?.message?.audio?.data;
+    // STEP 2: Get avatar configuration for frontend WebRTC synthesis
+    // Frontend will use Speech SDK to synthesize avatar video in real-time
+    const avatarConfig = avatarService.getAvatarConfig(selectedAgent.role);
+    const avatarSSML = avatarService.buildSSML(responseText, selectedAgent.role);
     
-    // Use agent's emotion instead of detecting it
+    // Use agent's emotion and metadata
     const emotion = orchestrator.getAgentEmotion();
     const agentMetadata = orchestrator.getAgentMetadata();
 
     console.log(
-      `🎵 Audio generated - Agent: ${agentMetadata.agentName}, Audio: ${
-        audioData ? "Yes" : "No"
-      }, Emotion: ${emotion}`
+      `🎭 Avatar config - Character: ${avatarConfig.character}, Style: ${avatarConfig.style}, Voice: ${avatarConfig.voice}, Agent: ${agentMetadata.agentName}`
     );
 
     await memory.saveContext({ input: userMessage }, { output: responseText });
 
     res.json({
       reply: responseText,
-      audioData,
+      avatar: {
+        character: avatarConfig.character,
+        style: avatarConfig.style,
+        voice: avatarConfig.voice,
+        ssml: avatarSSML, // SSML for Speech SDK synthesis
+        videoFormat: avatarConfig.videoFormat,
+      },
       sources: sources.map((s) => s.content),
       isCrisis,
       resources: isCrisis ? getCrisisResources() : [],
       emotion,
-      agent: agentMetadata, // Include agent information for audio mode too
+      agent: agentMetadata, // Include agent information for avatar sync
     });
   } catch (err) {
     console.error("============ ERROR IN /CHAT-AUDIO ENDPOINT ============");
@@ -841,9 +849,16 @@ app.post("/chat-audio", async (req, res) => {
         ? "**[Auto-Generated Safety Response]**\n\nI can hear that you're going through a really difficult time right now. Due to content safety filters, I'm currently unable to respond directly to your message, but your safety is what matters most.\n\n**Please reach out to a crisis counselor immediately:**\n• Call or text **988** (US Suicide & Crisis Lifeline)\n• Text HOME to **741741** (Crisis Text Line)\n• Call **911** if you're in immediate danger\n\nThese services have trained professionals available 24/7 who can provide the immediate support you need. You don't have to face this alone.\n\n*Note: This is an automated safety message because my AI capabilities are currently limited in responding to crisis situations. Please seek human support right away.*"
         : "**[Auto-Generated Response]**\n\nI apologize, but I'm unable to respond to your message directly due to content safety filters. This is an automated message to let you know that my AI capabilities have limitations in certain situations.\n\nIf you're experiencing a mental health crisis or having thoughts of self-harm, please contact:\n• **988** (US Suicide & Crisis Lifeline)\n• Text HOME to **741741** (Crisis Text Line)\n\nFor general support, you might try rephrasing your message, or reach out to a mental health professional who can provide the help you need.\n\n*This is an automated safety response - I'm currently not able to assist with this particular request.*";
 
+      const crisisAvatarConfig = avatarService.getAvatarConfig('crisis-counselor');
       return res.json({
         reply: crisisResponse,
-        audioData: null,
+        avatar: {
+          character: crisisAvatarConfig.character,
+          style: crisisAvatarConfig.style,
+          voice: crisisAvatarConfig.voice,
+          ssml: avatarService.buildSSML(crisisResponse, 'crisis-counselor'),
+          videoFormat: crisisAvatarConfig.videoFormat,
+        },
         sources: [],
         isCrisis,
         resources: isCrisis ? getCrisisResources() : [],
@@ -852,12 +867,19 @@ app.post("/chat-audio", async (req, res) => {
       });
     }
 
+    const errorAvatarConfig = avatarService.getAvatarConfig('companion');
     res.status(500).json({
-      error: "Audio model call failed",
+      error: "Chat-audio endpoint failed",
       message: err.message,
       reply:
         "**[System Error]**\n\nI'm sorry, I encountered a technical problem and cannot respond right now. This is an automated error message.\n\nIf you're in crisis, please call **988** (US) or your local emergency number immediately for professional help.\n\n*This is an automated response due to a system error.*",
-      audioData: null,
+      avatar: {
+        character: errorAvatarConfig.character,
+        style: errorAvatarConfig.style,
+        voice: errorAvatarConfig.voice,
+        ssml: null,
+        videoFormat: errorAvatarConfig.videoFormat,
+      },
     });
   }
 });

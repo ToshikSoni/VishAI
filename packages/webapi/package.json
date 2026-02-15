@@ -38,6 +38,7 @@
     "@azure/keyvault-secrets": "^4.8.0",
     "@langchain/azure-openai": "latest",
     "@langchain/openai": "^0.5.16",
+    "axios": "^1.7.0",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
