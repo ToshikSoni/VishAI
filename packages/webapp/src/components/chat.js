@@ -7,6 +7,7 @@ import {
 } from "../utils/chatStore.js";
 import { formatMarkdown } from "../utils/markdownFormatter.js";
 import { API_URL, fetchWithRetry } from "../config/api.js";
+import { AvatarManager } from "../utils/avatarManager.js";
 import "./chat.css";
 import "./avatar.ts";
 
@@ -61,6 +62,10 @@ export class ChatInterface extends LitElement {
     this.currentUtterance = null;
     this.currentAudio = null;
     this.bargeInTimer = null;
+    
+    // Azure Speech Avatar
+    this.avatarManager = null;
+    this.avatarInitialized = false;
 
     // Session management
     this.sessionId = this._generateSessionId();
@@ -110,6 +115,11 @@ export class ChatInterface extends LitElement {
     super.disconnectedCallback();
     this._stopListening();
     this._stopSpeaking();
+    
+    // Clean up avatar connection
+    if (this.avatarManager) {
+      this.avatarManager.close();
+    }
   }
 
   _addWelcomeMessage() {
@@ -229,15 +239,29 @@ export class ChatInterface extends LitElement {
         </div>
 
         <div class="chat-container">
-          <!-- 3D Avatar -->
+          <!-- 3D Avatar & Azure Speech Avatar Video -->
           ${this.showAvatar
             ? html`
                 <div class="avatar-container">
-                  <avatar-component
-                    .emotion=${this.currentEmotion}
-                    .isSpeaking=${this.isSpeaking}
-                    .isListening=${this.isListening}
-                  ></avatar-component>
+                  <!-- Azure Speech Lisa Avatar (shown in talk mode) -->
+                  ${this.talkModeActive ? html`
+                    <div class="azure-avatar-video">
+                      <video 
+                        id="avatar-video" 
+                        autoplay 
+                        playsinline
+                        style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px;"
+                      ></video>
+                      <audio id="avatar-audio" autoplay></audio>
+                    </div>
+                  ` : html`
+                    <!-- 3D VRM Avatar (shown when not in talk mode) -->
+                    <avatar-component
+                      .emotion=${this.currentEmotion}
+                      .isSpeaking=${this.isSpeaking}
+                      .isListening=${this.isListening}
+                    ></avatar-component>
+                  `}
                 </div>
               `
             : ""}
@@ -641,11 +665,18 @@ export class ChatInterface extends LitElement {
         this.showCrisisResources = true;
       }
 
-      // Handle audio playback
-      if (this.talkModeActive && aiResponse.audioData) {
-        this._playAudioData(aiResponse.audioData);
-      } else if (this.talkModeActive && aiResponse.reply) {
-        this._speakResponse(aiResponse.reply);
+      // Handle audio/avatar playback
+      if (this.talkModeActive) {
+        if (aiResponse.avatar && aiResponse.avatar.ssml && this.avatarManager) {
+          // Use Azure Speech Avatar with SSML
+          await this._speakWithAvatar(aiResponse.avatar.ssml);
+        } else if (aiResponse.audioData) {
+          // Fallback to audio data playback (legacy)
+          this._playAudioData(aiResponse.audioData);
+        } else if (aiResponse.reply) {
+          // Fallback to browser speech synthesis
+          this._speakResponse(aiResponse.reply);
+        }
       }
     } catch (error) {
       console.error("Error calling model:", error);
@@ -721,17 +752,52 @@ export class ChatInterface extends LitElement {
   }
 
   // Speech/Talk Mode Methods
-  _toggleTalkMode() {
+  async _toggleTalkMode() {
     if (!this.talkModeSupported) return;
 
     this.talkModeActive = !this.talkModeActive;
     this.speechError = "";
 
     if (this.talkModeActive) {
+      // Initialize Azure Speech Avatar on first activation
+      if (!this.avatarInitialized) {
+        await this._initializeAvatar();
+      }
       this._startListening();
     } else {
       this._stopListening();
       this._stopSpeaking();
+    }
+  }
+
+  async _initializeAvatar() {
+    if (this.avatarInitialized) return;
+
+    try {
+      console.log('🎭 Initializing Lisa avatar...');
+      
+      // Get video and audio elements
+      const videoEl = this.querySelector('#avatar-video');
+      const audioEl = this.querySelector('#avatar-audio');
+      
+      if (!videoEl || !audioEl) {
+        console.error('❌ Avatar video/audio elements not found');
+        return;
+      }
+
+      // Create avatar manager
+      this.avatarManager = new AvatarManager();
+      await this.avatarManager.initialize(videoEl, audioEl);
+      
+      this.avatarInitialized = true;
+      console.log('✅ Lisa avatar ready!');
+      
+      // Show toast notification
+      this._showToast('Lisa avatar is ready!');
+    } catch (error) {
+      console.error('❌ Failed to initialize avatar:', error);
+      this.speechError = 'Failed to initialize avatar video';
+      this._showToast('Avatar initialization failed - check console');
     }
   }
 
@@ -817,8 +883,6 @@ export class ChatInterface extends LitElement {
   }
 
   _stopSpeaking() {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-
     if (this.bargeInTimer) {
       clearTimeout(this.bargeInTimer);
       this.bargeInTimer = null;
@@ -829,9 +893,39 @@ export class ChatInterface extends LitElement {
       this.currentAudio = null;
     }
 
-    window.speechSynthesis.cancel();
+    // Stop Azure Speech Avatar
+    if (this.avatarManager) {
+      this.avatarManager.stopSpeaking();
+    }
+
+    // Stop browser speech synthesis
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+
     this.isSpeaking = false;
     this.currentUtterance = null;
+  }
+
+  async _speakWithAvatar(ssml) {
+    if (!this.avatarManager || !this.avatarInitialized) {
+      console.warn('⚠️ Avatar not ready, falling back to text');
+      return;
+    }
+
+    try {
+      this.isSpeaking = true;
+      this.requestUpdate();
+
+      await this.avatarManager.speakSSML(ssml);
+
+      this.isSpeaking = false;
+      this.requestUpdate();
+    } catch (error) {
+      console.error('❌ Avatar speech failed:', error);
+      this.isSpeaking = false;
+      this.requestUpdate();
+    }
   }
 
   _playAudioData(base64Audio) {

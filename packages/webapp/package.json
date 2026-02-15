@@ -11,7 +11,8 @@
   "dependencies": {
     "lit": "^3.2.1",
     "three": "^0.170.0",
-    "@pixiv/three-vrm": "^3.2.0"
+    "@pixiv/three-vrm": "^3.2.0",
+    "microsoft-cognitiveservices-speech-sdk": "^1.40.0"
   },
   "devDependencies": {
     "vite": "^6.2.0",
