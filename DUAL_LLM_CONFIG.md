@@ -1,28 +1,46 @@
 # Dual LLM Deployment Configuration
 
-VishAI uses **two separate LLM deployments** to optimize for different interaction modes:
+VishAI uses **two separate LLM deployments** working hand-in-hand to optimize for different capabilities:
 
-## 🗣️ Text Chat vs Voice Chat
+## 🗣️ Architecture: Intelligence + Voice
 
-### Text Chat Deployment (`/chat` endpoint)
-- **Used for:** Regular text-based chat interactions
-- **Model:** GPT-4o or GPT-5 (text-only, no audio modalities)
+### 🧠 GPT-5 Chat (Intelligence Brain)
+- **Used for:** ALL agent intelligence and response generation
+- **Used by:** Both `/chat` (text) AND `/chat-audio` (voice) endpoints
 - **Environment Variable:** `TEXT_DEPLOYMENT_NAME`
-- **Benefits:**
-  - Faster response times for text
-  - Lower latency
-  - More cost-effective for text-only interactions
-  - Better suited for longer responses and complex reasoning
+- **Responsibilities:**
+  - Multi-agent orchestration (Crisis, CBT, Mindfulness, Companion)
+  - Context awareness and conversation memory
+  - Crisis detection and specialized responses
+  - RAG integration for mental health resources
+  - All cognitive reasoning and empathetic response generation
 
-### Voice Chat Deployment (`/chat-audio` endpoint)
-- **Used for:** Voice interactions with audio input/output
-- **Model:** GPT-4o-audio (with audio modalities enabled)
+### 🎵 GPT-audio (Voice Generator)
+- **Used for:** Audio generation ONLY (Text-to-Speech)
+- **Used by:** `/chat-audio` endpoint only
 - **Environment Variable:** `AUDIO_DEPLOYMENT_NAME`
-- **Benefits:**
-  - Native audio generation with natural voice
-  - Voice modulation for emotional expression
-  - Better suited for conversational, concise responses
-  - Synchronized audio and text output
+- **Responsibilities:**
+  - Converting GPT-5's text responses into natural audio
+  - Voice modulation with "Sage" voice characteristics
+  - MP3 audio format generation
+
+## 🔄 How They Work Together
+
+### Text Mode (`/chat`)
+```
+User Message → GPT-5 → Agent Intelligence → Text Response → Frontend
+```
+
+### Voice Mode (`/chat-audio`)
+```
+User Voice Message → GPT-5 → Agent Intelligence → Text Response
+                                                        ↓
+                                               GPT-audio → Audio Version
+                                                        ↓
+                                            Frontend (text + audio)
+```
+
+**Key Point:** GPT-audio never makes intelligence decisions—it's purely a text-to-speech converter. All agent selection, context awareness, and response generation happens via GPT-5, ensuring consistent intelligence across both text and voice modes.
 
 ## 🔧 Configuration
 

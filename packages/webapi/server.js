@@ -761,8 +761,8 @@ app.post("/chat-audio", async (req, res) => {
       systemContent += `\n\n=== UPLOADED DOCUMENTS & MENTAL HEALTH RESOURCES ===\n${sourcesText}\n`;
     }
 
-    // Add audio-specific instruction
-    const audioInstruction = `\n\n=== VOICE MODE ===\nYou are speaking aloud in a warm, empathetic, and conversational tone. Keep responses natural and emotionally supportive, as if you're a caring friend having a voice conversation. Responses should be concise (2-4 short sentences) and conversational. Use the "Sage" voice style - calm, wise, and reassuring.`;
+    // Add audio-specific instruction for more conversational tone
+    const audioInstruction = `\n\n=== VOICE MODE ===\nYou are speaking aloud in a warm, empathetic, and conversational tone. Keep responses natural and emotionally supportive, as if you're a caring friend having a voice conversation. Responses should be concise (2-4 short sentences) and conversational.`;
     systemContent += audioInstruction;
 
     const messages = buildMessages(systemContent, memoryVars, userMessage);
@@ -773,26 +773,47 @@ app.post("/chat-audio", async (req, res) => {
       "messages"
     );
 
-    // Use audio client with audio modalities
-    const completion = await audioClient.chat.completions.create({
-      model: process.env.AUDIO_DEPLOYMENT_NAME || process.env.DEPLOYMENT_NAME,
+    // STEP 1: Use TEXT CLIENT (GPT-5) for agent intelligence and response generation
+    const textCompletion = await textClient.chat.completions.create({
+      model: process.env.TEXT_DEPLOYMENT_NAME || process.env.DEPLOYMENT_NAME,
       messages,
       max_tokens: 4096,
       temperature: 0.7,
+    });
+
+    const responseText = textCompletion.choices[0]?.message?.content || "";
+    
+    console.log(
+      `✅ Text response generated - Agent: ${selectedAgent.name}, Length: ${responseText.length} chars`
+    );
+
+    // STEP 2: Use AUDIO CLIENT (GPT-audio) ONLY for audio generation (TTS)
+    const audioCompletion = await audioClient.chat.completions.create({
+      model: process.env.AUDIO_DEPLOYMENT_NAME || process.env.DEPLOYMENT_NAME,
+      messages: [
+        {
+          role: "system",
+          content: "You are a voice assistant. Convert the following text to speech with a warm, empathetic tone using the Sage voice.",
+        },
+        {
+          role: "user",
+          content: responseText,
+        },
+      ],
+      max_tokens: 100, // Minimal tokens since we're just doing TTS
+      temperature: 0.3,
       modalities: ["text", "audio"],
       audio: { voice: "sage", format: "mp3" },
     });
 
-    const message = completion.choices[0]?.message;
-    const responseText = message?.content || message?.audio?.transcript || "";
-    const audioData = message?.audio?.data;
+    const audioData = audioCompletion.choices[0]?.message?.audio?.data;
     
     // Use agent's emotion instead of detecting it
     const emotion = orchestrator.getAgentEmotion();
     const agentMetadata = orchestrator.getAgentMetadata();
 
     console.log(
-      `✅ Audio response - Agent: ${agentMetadata.agentName}, Text: ${responseText.length} chars, Audio: ${
+      `🎵 Audio generated - Agent: ${agentMetadata.agentName}, Audio: ${
         audioData ? "Yes" : "No"
       }, Emotion: ${emotion}`
     );
