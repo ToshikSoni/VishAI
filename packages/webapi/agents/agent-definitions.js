@@ -1,8 +1,3 @@
-/**
- * Agent Definitions for VishAI Multi-Agent System
- * Each agent specializes in different aspects of mental health support
- */
-
 export const agents = {
   crisis: {
     name: 'Crisis Counselor Agent',

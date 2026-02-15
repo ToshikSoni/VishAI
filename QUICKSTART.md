@@ -77,7 +77,7 @@ npm run dev
 - 🤖 Agent: **Crisis Counselor**
 - ⚠️ MCP Tool: `assess_crisis_level` → SEVERE
 - 📞 Response: Immediate 988 hotline + compassionate support
-- 😟 Avatar Emotion: concern
+- 😟 Emotion: concern
 
 ### Test 2: CBT Request
 
@@ -87,7 +87,7 @@ npm run dev
 - 🤖 Agent: **CBT Therapist**
 - 🧠 MCP Tool: `search_mental_health_topics` + `get_cbt_technique`
 - 📚 Response: Thought-challenging technique with steps
-- 🤔 Avatar Emotion: thoughtful
+- 🤔 Emotion: thoughtful
 
 ### Test 3: Panic/Anxiety
 
@@ -97,7 +97,7 @@ npm run dev
 - 🤖 Agent: **Mindfulness Coach**
 - 🧘 MCP Tool: `recommend_coping_strategies` (immediate)
 - 🌬️ Response: Guided 4-7-8 breathing exercise
-- 😌 Avatar Emotion: calm
+- 😌 Emotion: calm
 
 ### Test 4: General Support
 
@@ -107,7 +107,7 @@ npm run dev
 - 🤖 Agent: **Companion**
 - 💬 MCP Tool: `search_mental_health_topics` (stress)
 - ❤️ Response: Empathetic listening + general coping strategies
-- 🤗Avatar Emotion: empathy
+- 🤗 Emotion: empathy
 
 ## MCP Server API
 
@@ -205,8 +205,7 @@ packages/
 └── webapp/                     # Frontend
     ├── src/
     │   ├── components/
-    │   │   ├── chat.js        # Chat UI
-    │   │   └── avatar.ts      # 3D avatar with emotions
+    │   │   └── chat.js        # Chat UI
     │   └── main.js
     └── package.json
 ```
@@ -215,10 +214,9 @@ packages/
 
 - **`main`** - Production version at "cost efficient" commit (no avatar, no multi-agent)
 - **`Avatar`** - Hackathon version with:
-  - 3D VRM avatar with emotion-driven expressions
   - Multi-agent system with orchestrator
   - Azure MCP integration
-  - Voice interaction with lip sync
+  - Voice interaction
 
 ## Next Steps for Submission
 
@@ -259,17 +257,10 @@ curl http://localhost:3001/health
 
 **Verify:** server.js has orchestrator integration
 
-### Avatar not updating emotion
-
-**Check:** Response should include `"agent": { "agentName": "...", "agentEmotion": "..." }`
-
-**Fix:** Frontend should read `response.agent.agentEmotion`
-
 ## Support
 
 For issues or questions:
 - Check HACKATHON.md for full documentation
-- Review AVATAR_DOCUMENTATION.md for avatar specifics
 - See code comments for implementation details
 
 ---

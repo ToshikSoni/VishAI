@@ -1,4 +1,3 @@
-/* Import Google font - must be at the top */
 @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600&display=swap');
 
 :host {
@@ -11,18 +10,18 @@
     transform: none;
 }
 
-/* Variables for colors - softer pastel color scheme */
+
 :root {
     --primary-color: #70b3a1;
-    /* Softer calming green */
+    
     --secondary-color: #a8dadc;
-    /* Softer light blue */
+    
     --accent-color: #caffbf;
-    /* Soft mint green */
+    
     --background-color: #f8f9fa;
     --text-color: #555;
     --user-bubble: #a8dadc;
-    /* Lighter user bubble */
+    
     --ai-bubble: #f0f7f4;
     --crisis-bg: #fff3cd;
     --crisis-text: #856404;
@@ -38,19 +37,19 @@ body {
     padding: 0;
 }
 
-/* App Wrapper */
+
 .app-wrapper {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    height: 100dvh; /* Use dynamic viewport height for mobile */
+    height: 100dvh; 
     width: 100%;
     overflow: hidden;
     margin: 0;
     padding: 0;
 }
 
-/* Top Navigation Bar */
+
 .top-nav {
     display: flex;
     justify-content: space-between;
@@ -188,7 +187,7 @@ body {
     color: #666;
 }
 
-/* Audio Visualization */
+
 .audio-visualization {
     display: flex;
     flex-direction: column;
@@ -301,47 +300,28 @@ body {
     position: relative;
 }
 
-/* Remove decorative top bar since we have top nav */
-.chat-container::before {
-    display: none;
-}
-
-/* Avatar Container */
 .avatar-container {
     position: absolute;
-    top: 20px;
+    bottom: 120px;
     right: 20px;
-    width: 280px;
-    height: 320px;
-    z-index: 50;
-    border-radius: 16px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    width: 300px;
+    height: 350px;
+    z-index: 10;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     overflow: hidden;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(112, 179, 161, 0.2);
 }
 
-.avatar-container:hover {
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
-    transform: translateY(-2px);
+.avatar-container canvas {
+    width: 100% !important;
+    height: 100% !important;
 }
 
-@media (max-width: 768px) {
-    .avatar-container {
-        width: 200px;
-        height: 240px;
-        top: 10px;
-        right: 10px;
-    }
-}
-
-@media (max-width: 480px) {
-    .avatar-container {
-        width: 150px;
-        height: 180px;
-        top: 5px;
-        right: 5px;
-    }
+.chat-container::before {
+    display: none;
 }
 
 .chat-header {
@@ -367,7 +347,7 @@ body {
     gap: 8px;
 }
 
-/* Add cute icon next to title */
+
 .chat-title::before {
     content: "💚";
     font-size: 1.2rem;
@@ -379,7 +359,7 @@ body {
     align-items: center;
 }
 
-/* Small audio bars in button - Keep for animations */
+
 .audio-bars-small {
     display: flex;
     align-items: flex-end;
@@ -485,7 +465,7 @@ body {
     flex: 1;
     overflow-y: auto;
     padding: 20px 20vw;
-    /* 20% of viewport width for landscape/desktop */
+    
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -496,18 +476,18 @@ body {
 .message {
     max-width: 85%;
     padding: 12px 16px;
-    /* Slightly reduced padding */
+    
     border-radius: var(--message-border-radius);
     animation: fadeIn 0.3s ease-in-out;
     line-height: 1.5;
-    /* Slightly reduced */
+    
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
     font-family: 'Quicksand', sans-serif;
     font-weight: 400;
     font-size: 0.95rem;
-    /* Slightly reduced */
+    
     letter-spacing: 0.1px;
-    /* Slightly reduced */
+    
 }
 
 .welcome-message {
@@ -545,15 +525,15 @@ body {
 
 .user-message {
     align-self: flex-end;
-    /* Changed back to flex-end to align to the right */
+    
     background-color: var(--user-bubble);
     color: #444;
     border-radius: 18px 18px 0 18px;
     border-bottom: 2px solid rgba(0, 0, 0, 0.05);
     margin-left: 0;
-    /* Remove left margin since we're aligning to the right */
+    
     margin-right: 20px;
-    /* Add right margin instead */
+    
 }
 
 .ai-message {
@@ -602,7 +582,7 @@ body {
     flex-direction: column;
 }
 
-/* Agent Badge Styling */
+
 .agent-badge {
     display: inline-flex;
     align-items: center;
@@ -653,7 +633,7 @@ body {
     word-break: break-word;
 }
 
-/* Markdown Formatting */
+
 .message-text {
     line-height: 1.6;
     word-break: break-word;
@@ -813,7 +793,7 @@ body {
     line-height: 1.8;
 }
 
-/* Task Lists */
+
 .message-text ul.task-list {
     list-style: none;
     padding-left: 0;
@@ -831,7 +811,7 @@ body {
     cursor: not-allowed;
 }
 
-/* Tables */
+
 .message-text table.markdown-table {
     border-collapse: collapse;
     width: 100%;
@@ -862,7 +842,7 @@ body {
     background-color: rgba(112, 179, 161, 0.1);
 }
 
-/* Images */
+
 .message-text img.markdown-image {
     max-width: 100%;
     height: auto;
@@ -871,7 +851,7 @@ body {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* Chat Input Container */
+
 .chat-input-container {
     display: flex;
     align-items: center;
@@ -965,7 +945,7 @@ button:disabled {
     cursor: not-allowed;
 }
 
-/* App Footer */
+
 .app-footer {
     padding: 12px 20px;
     text-align: center;
@@ -989,7 +969,7 @@ button:disabled {
     color: #a35b1d;
 }
 
-/* Modal Overlay */
+
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -1014,7 +994,7 @@ button:disabled {
     }
 }
 
-/* Crisis Modal */
+
 .crisis-modal {
     background-color: #fff;
     border-radius: 16px;
@@ -1180,7 +1160,7 @@ button:disabled {
     transform: translateY(0);
 }
 
-/* Force light theme */
+
 @media (prefers-color-scheme: dark) {
     body {
         background-color: #fcfcfc;
@@ -1360,7 +1340,7 @@ button:disabled {
     }
 }
 
-/* Landscape orientation on mobile/tablet devices - more padding like desktop */
+
 @media (orientation: landscape) and (max-width: 1024px) {
     .chat-messages {
         padding: 16px 18vw !important;
@@ -1372,7 +1352,7 @@ button:disabled {
     }
 }
 
-/* Portrait orientation on mobile - minimal padding */
+
 @media (orientation: portrait) and (max-width: 768px) {
     .chat-messages {
         padding: 16px 5vw !important;
@@ -1384,7 +1364,7 @@ button:disabled {
     }
 }
 
-/* Sidebar Styles */
+
 .sidebar {
     position: fixed;
     left: -400px;
@@ -1610,7 +1590,7 @@ button:disabled {
     box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
 }
 
-/* Document Management */
+
 .document-upload-section {
     margin-bottom: 24px;
 }
@@ -1757,7 +1737,7 @@ button:disabled {
     backdrop-filter: blur(4px);
 }
 
-/* Mobile Responsive */
+
 @media (max-width: 768px) {
     .sidebar {
         width: 100%;
@@ -1814,7 +1794,7 @@ button:disabled {
     }
 }
 
-/* History Sidebar */
+
 .history-sidebar {
     position: fixed;
     top: 0;
@@ -1921,9 +1901,9 @@ button:disabled {
     flex-direction: column;
     gap: 4px;
     min-width: 0;
-    /* Allow flexbox to shrink below content size */
+    
     overflow: hidden;
-    /* Prevent overflow */
+    
 }
 
 .history-title {
@@ -1934,7 +1914,7 @@ button:disabled {
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
-    /* Ensure it respects parent width */
+    
 }
 
 .history-timestamp {
@@ -2008,7 +1988,7 @@ button:disabled {
     box-shadow: 0 6px 20px rgba(112, 179, 161, 0.3);
 }
 
-/* Toast Notification */
+
 .toast-notification {
     position: fixed;
     top: 80px;
@@ -2048,7 +2028,7 @@ button:disabled {
     }
 }
 
-/* Responsive - Tablets */
+
 @media (max-width: 768px) {
     .sidebar {
         width: 100%;
@@ -2102,7 +2082,7 @@ button:disabled {
     }
 }
 
-/* Responsive - Mobile Phones */
+
 @media (max-width: 480px) {
     :host {
         font-size: 14px;
@@ -2190,7 +2170,7 @@ button:disabled {
         font-size: 0.85rem;
     }
 
-    /* Sidebar adjustments */
+    
     .sidebar-header h2 {
         font-size: 1.1rem;
     }
@@ -2203,7 +2183,7 @@ button:disabled {
         font-size: 0.9rem;
     }
 
-    /* Crisis modal mobile */
+    
     .crisis-modal {
         width: 95%;
         margin: 10px;
@@ -2218,7 +2198,7 @@ button:disabled {
         font-size: 0.9rem;
     }
 
-    /* Toast notification mobile */
+    
     .toast-notification {
         top: 60px;
         padding: 10px 20px;
@@ -2226,12 +2206,7 @@ button:disabled {
         max-width: 90%;
     }
 
-    /* Avatar canvas mobile */
-    .avatar-canvas {
-        height: 200px !important;
-    }
-
-    /* Voice indicator mobile */
+    
     .voice-indicator {
         width: 8px;
         height: 8px;
@@ -2244,12 +2219,8 @@ button:disabled {
     }
 }
 
-/* Landscape mobile optimization */
-@media (max-width: 768px) and (orientation: landscape) {
-    .avatar-canvas {
-        height: 150px !important;
-    }
 
+@media (max-width: 768px) and (orientation: landscape) {
     .top-nav {
         padding: 6px 12px;
     }
@@ -2259,7 +2230,7 @@ button:disabled {
     }
 }
 
-/* Extra small devices */
+
 @media (max-width: 320px) {
     .app-title {
         font-size: 0.9rem;
@@ -2280,38 +2251,30 @@ button:disabled {
     }
 }
 
-/* Touch device optimizations */
+
 @media (hover: none) and (pointer: coarse) {
-    /* Larger touch targets */
+    
     button {
         min-height: 44px;
         min-width: 44px;
     }
 
     .chat-input {
-        font-size: 16px; /* Prevents zoom on iOS */
+        font-size: 16px; 
     }
 
-    /* Prevent double-tap zoom */
+    
     * {
         touch-action: manipulation;
     }
 
-    /* Smooth scrolling on touch */
+    
     .chat-messages {
         -webkit-overflow-scrolling: touch;
     }
 }
 
-/* High DPI displays */
-@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-    .avatar-canvas {
-        image-rendering: -webkit-optimize-contrast;
-        image-rendering: crisp-edges;
-    }
-}
 
-/* Dark mode support (system preference) */
 @media (prefers-color-scheme: dark) {
     :root {
         --background-color: #1a1a1a;
@@ -2338,7 +2301,7 @@ button:disabled {
     }
 }
 
-/* Reduced motion for accessibility */
+
 @media (prefers-reduced-motion: reduce) {
     * {
         animation-duration: 0.01ms !important;

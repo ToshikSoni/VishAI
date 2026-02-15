@@ -97,7 +97,7 @@ A **multi-agent AI system** where specialized agents (Crisis Counselor, CBT Ther
 **Implementation:**
 - **Model:** GPT-4o with multimodal capabilities (text + audio)
 - **Audio Modalities:** Text-to-Speech with "Sage" voice for natural conversations
-- **Voice Interaction:** Full voice chat with lip-synced 3D avatar
+- **Voice Interaction:** Full voice chat with natural TTS
 - **Configuration:** Temperature 0.7, max tokens 4096, streaming support
 
 ### 4. **Azure Infrastructure & Services**
@@ -125,10 +125,10 @@ A **multi-agent AI system** where specialized agents (Crisis Counselor, CBT Ther
 ┌────────────────────────────────────────────────────────────┐
 │                     FRONTEND (Vue + Lit)                    │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐ │
-│  │  Chat UI     │  │  3D Avatar   │  │  Voice Interface │ │
-│  │  (chat.js)   │  │  (avatar.ts) │  │  (Web Speech)    │ │
-│  └──────┬───────┘  └──────┬───────┘  └──────────────────┘ │
-│         └───────────────────┤                               │
+│  │  Chat UI     │  │  Voice Interface │                   │
+│  │  (chat.js)   │  │  (Web Speech)    │                   │
+│  └──────┬───────┘  └──────────────────┘                   │
+│         │                                                  │
 │                             ▼                               │
 │                  Fetch API (HTTP/REST)                      │
 └────────────────────────────────┬──────────────────────────┘
@@ -217,7 +217,7 @@ A **multi-agent AI system** where specialized agents (Crisis Counselor, CBT Ther
    - MCP resource context (relevant knowledge)
    - Conversation history (LangChain memory)
 5. Azure OpenAI generates response with agent's expertise and emotion
-6. Frontend updates avatar emotion based on agent type
+6. Frontend displays agent-specific response with emotion indicator
 
 **Example Flow:**
 
@@ -232,7 +232,7 @@ MCP get_crisis_resources (US, suicide)
   ↓
 Response: Immediate 988 hotline, validation, crisis resources
   ↓
-Avatar emotion: "concern"
+Emotion: "concern"
 ```
 
 ### **2. Azure MCP Integration**
@@ -255,22 +255,12 @@ Avatar emotion: "concern"
 - Standardized protocol ensures consistency
 - Graceful degradation if MCP unavailable
 
-### **3. 3D Avatar with Emotion-Driven Expressions**
-
-- **VRM-based 3D character** using Three.js and @pixiv/three-vrm
-- **7 Emotion States:** empathy, concern, encouraging, happy, sad, thoughtful, neutral
-- **Emotion Synced to Agent:** Each agent has default emotion
-- **Lip Sync:** Audio-reactive mouth movements via Web Audio API
-- **Idle Animations:** Breathing, blinking, head movement
-- **Interactive:** Orbit controls for user engagement
-
-### **4. Voice Interaction (Talk Mode)**
+### **3. Voice Interaction (Talk Mode)**
 
 - **Speech Recognition:** Web Speech API for voice input
 - **Azure TTS:** Natural voice synthesis with "Sage" voice
 - **Barge-In:** Stops AI speaking when user interrupts
 - **Continuous Flow:** Auto-resumes listening after response
-- **Avatar Integration:** Lip sync + emotion = immersive experience
 
 ### **5. Personalized User Context**
 
@@ -378,7 +368,6 @@ Avatar emotion: "concern"
 ### **4. User Experience & Presentation (20%)**
 
 ✅ **Well-Designed UX:**
-- **3D avatar** creates emotional connection
 - **Voice interaction** for natural conversation
 - **Markdown rendering** for clear information structure
 - **Session management** for conversation continuity
@@ -392,7 +381,7 @@ Avatar emotion: "concern"
 - Markdown formatting for readability
 
 ✅ **Balanced Implementation:**
-- **Frontend:** Vite, Lit components, Three.js, Web APIs
+- **Frontend:** Vite, Lit components, Web APIs
 - **Backend:** Express, LangChain, MCP, Azure OpenAI
 - **Infrastructure:** Azure services, IaC deployment
 
@@ -426,7 +415,6 @@ Avatar emotion: "concern"
 **Frontend:**
 - Vite 6.0
 - Lit 3.6 (Web Components)
-- Three.js + @pixiv/three-vrm (3D Avatar)
 - Web Speech API (Voice)
 - Marked (Markdown rendering)
 
@@ -471,7 +459,7 @@ Avatar emotion: "concern"
 - **4 Specialized Agents** for mental health support
 - **5 MCP Tools** for intelligent decision-making
 - **4 MCP Resource Collections** (50+ strategies, 8 conditions, 4 CBT techniques)
-- **7 Emotion States** for avatar
+- **7 Emotion States** for agent responses
 - **Voice + Text** interaction modes
 - **Session-based memory** (conversation continuity)
 - **Multi-language crisis resources** (US, UK, CA, AU)
@@ -512,22 +500,22 @@ Avatar emotion: "concern"
 - Show: MCP assess_crisis_level → SEVERE
 - Show: Crisis Counselor Agent selected
 - Response: Immediate 988 hotline, compassionate support
-- Avatar emotions: Concern
+- Emotion: Concern
 
 **[0:50-1:10]** CBT Therapist Demo
 - Type: "I can't stop overthinking and catastrophizing"
 - Show: CBT Therapist Agent selected
 - Show: MCP get_cbt_technique for thought-challenging
 - Response: Step-by-step cognitive restructuring guide
-- Avatar emotion: Thoughtful
+- Emotion: Thoughtful
 
 **[1:10-1:30]** Mindfulness Coach Demo
 - Type: "I'm having a panic attack, can't breathe"
 - Show: Mindfulness Coach selected
 - Show: MCP recommend_coping_strategies (immediate)
 - Response: Guided 4-7-8 breathing exercise in real-time
-- Avatar emotion: Calm
-- Switch to voice mode, show lip sync
+- Emotion: Calm
+- Switch to voice mode for natural interaction
 
 **[1:30-1:50]** Azure Technologies Highlight
 - **Azure MCP:** Show MCP server with resources/tools
@@ -688,7 +676,6 @@ AGPL-3.0
 graph TB
     subgraph "Frontend - Lit Web Components"
         UI[Chat Interface]
-        Avatar[3D Avatar<br/>Three.js + VRM]
         Voice[Voice Input/Output<br/>Web Speech API]
     end
 
@@ -779,7 +766,7 @@ graph TB
 
 ### Architecture Flow
 
-1. **User Interaction:** User interacts via chat interface or voice with 3D avatar
+1. **User Interaction:** User interacts via chat interface or voice
 2. **API Gateway:** Express.js API receives requests, manages sessions
 3. **Agent Orchestration:** Orchestrator analyzes message context and crisis level
 4. **Agent Selection:** Routes to specialized agent (Crisis/CBT/Mindfulness/Companion)

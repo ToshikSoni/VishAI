@@ -48,7 +48,6 @@ A **multi-agent AI system** where specialized agents (🚨 Crisis Counselor, �
 - **Real-time Knowledge Access** - Agents query MCP server for domain expertise
 
 ### User Experience
-- **3D Avatar** - Emotion-driven expressions using Three.js + VRM
 - **Voice Interaction** - Full voice chat with Azure OpenAI audio
 - **Agent Badges** - Visual indicators showing which specialist is helping
 - **Crisis Detection** - Automatic crisis detection with immediate resources
@@ -66,7 +65,7 @@ A **multi-agent AI system** where specialized agents (🚨 Crisis Counselor, �
 
 ```mermaid
 graph TB
-    UI[Frontend: Lit + Three.js] --> API[Backend API]
+    UI[Frontend: Lit Web Components] --> API[Backend API]
     API --> Orchestrator[Agent Orchestrator]
     Orchestrator --> Crisis[🚨 Crisis Agent]
     Orchestrator --> CBT[🧠 CBT Agent]
@@ -144,7 +143,6 @@ docker-compose up --build
 - **[DEPLOYMENT.md](DEPLOYMENT.md)** - Azure deployment guide
 - **[PRIVACY.md](PRIVACY.md)** - Privacy policy & data handling
 - **[QUICKSTART.md](QUICKSTART.md)** - Quick testing guide
-- **[AVATAR_DOCUMENTATION.md](AVATAR_DOCUMENTATION.md)** - 3D avatar technical docs
 
 ## 🎬 Demo Video
 
