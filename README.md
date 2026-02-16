@@ -89,7 +89,7 @@ Try it out: [VishAI](https://gentle-ground-0e9b60d03.2.azurestaticapps.net)
 
 Video Demo for real-time avatar: 
 
-https://github.com/user-attachments/assets/c109e843-8ea6-43fb-8ce5-0a392a65b6e9
+https://github.com/user-attachments/assets/bc5de021-4646-481a-9112-6726928b33ff
 
 
 
