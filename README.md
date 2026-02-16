@@ -87,7 +87,11 @@ Try it out: [VishAI](https://gentle-ground-0e9b60d03.2.azurestaticapps.net)
 
 **I had to remove the live demo because of the hosting cost. You can deploy the website and test it out on your own by providing the required API keys. You need to use Microsoft text-to-speech avatar service for real-time realistic avatar. Along with any chat based and voice based AI LLM.**
 
-Video Demo for real-time avatar: [![Watch the video](https://img.youtube.com/vi/CLgC3gebGWY/0.jpg)](https://youtu.be/CLgC3gebGWY)
+Video Demo for real-time avatar: 
+
+https://github.com/user-attachments/assets/c109e843-8ea6-43fb-8ce5-0a392a65b6e9
+
+
 
 Website Demo: 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/f1q9ztlbhjw0dsxvrlrh.png)
