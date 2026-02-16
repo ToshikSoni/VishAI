@@ -82,9 +82,16 @@ Vish AI tackles this with 4 specialized AI agents — a Crisis Counselor, CBT Th
 ---
 ## Demo
 GitHub: https://github.com/ToshikSoni/JS-AI_VishAI/
+
 Try it out: [VishAI](https://gentle-ground-0e9b60d03.2.azurestaticapps.net)
+
 **I had to remove the live demo because of the hosting cost. You can deploy the website and test it out on your own by providing the required API keys. You need to use Microsoft text-to-speech avatar service for real-time realistic avatar. Along with any chat based and voice based AI LLM.**
+
 Video Demo for real-time avatar: {% embed https://youtu.be/CLgC3gebGWY %}
+
+Website Demo: 
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/f1q9ztlbhjw0dsxvrlrh.png)
+
 Real-time avatars:
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/eeov8edneeuslcl2u0u7.png)
 
