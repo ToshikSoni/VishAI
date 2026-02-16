@@ -4,6 +4,7 @@ import { loadMessages, saveMessages, clearMessages } from "../utils/chatStore.js
 import { formatMarkdown } from "../utils/markdownFormatter.js";
 import { API_URL, fetchWithRetry } from "../config/api.js";
 import { VRMAvatar } from "./vrmAvatar";
+import { AzureAvatar } from "./azureAvatar";
 import "./chat.css";
 
 export class ChatInterface extends LitElement {
@@ -23,6 +24,10 @@ export class ChatInterface extends LitElement {
       sidebarOpen: { type: Boolean },
       activeTab: { type: String },
       userInfo: { type: Object },
+      azureRegion: { type: String },
+      azureKey: { type: String },
+      isAzureAvatarActive: { type: Boolean },
+      azureAvatarConfig: { type: Object },
       userDocuments: { type: Array },
       isUploadingDoc: { type: Boolean },
       historySidebarOpen: { type: Boolean },
@@ -48,6 +53,11 @@ export class ChatInterface extends LitElement {
     this.isListening = false;
     this.isSpeaking = false;
     this.speechError = "";
+    this.azureRegion = localStorage.getItem("azureRegion") || "";
+    this.azureKey = localStorage.getItem("azureKey") || "";
+    this.isAzureAvatarActive = false;
+    this.azureAvatarConfig = { character: "lisa", style: "casual-sitting" };
+    this.azureAvatar = null;
     this.recognition = null;
     this.currentUtterance = null;
     this.currentAudio = null;
@@ -406,10 +416,14 @@ export class ChatInterface extends LitElement {
         }
       }
 
-      if (this.talkModeActive && aiResponse.audioData) {
-        this._playAudioData(aiResponse.audioData);
-      } else if (this.talkModeActive && aiResponse.reply) {
-        this._speakResponse(aiResponse.reply);
+      if (this.talkModeActive) {
+        if (this.isAzureAvatarActive && this.azureAvatar) {
+           this._speakResponse(aiResponse.reply);
+        } else if (aiResponse.audioData) {
+           this._playAudioData(aiResponse.audioData);
+        } else if (aiResponse.reply) {
+           this._speakResponse(aiResponse.reply);
+        }
       }
     } catch (error) {
       let errorMessage = "I'm sorry, I'm having trouble responding right now. ";
@@ -441,14 +455,17 @@ export class ChatInterface extends LitElement {
   }
 
   async _apiCall(message) {
-    const endpoint = this.talkModeActive ? "/chat-audio" : "/chat";
+    // If Azure Avatar is active, request text only (chat mode) to save resources
+    // The frontend will handle text-to-speech via the Avatar SDK
+    const useAudioEndpoint = this.talkModeActive && !this.isAzureAvatarActive;
+    const endpoint = useAudioEndpoint ? "/chat-audio" : "/chat";
     
     // DEBUG: Log the payload being sent
     const payload = {
       message,
       useRAG: this.ragEnabled,
       sessionId: this.sessionId,
-      mode: this.talkModeActive ? "talk" : "chat",
+      mode: useAudioEndpoint ? "talk" : "chat",
       userInfo: this._hasUserInfo() ? this.userInfo : null,
       avatarConfig: this.avatarConfig || { voice: "marin", gender: "female" },
     };
@@ -545,9 +562,53 @@ export class ChatInterface extends LitElement {
       return;
     }
 
+    // Cleanup existing avatars
     if (this.avatar) {
-      // Clean up previous instance if it exists
       if (typeof this.avatar.dispose === 'function') this.avatar.dispose();
+      this.avatar = null;
+    }
+    if (this.azureAvatar) {
+        this.azureAvatar.disconnect();
+        this.azureAvatar = null;
+    }
+    
+    // Clear container to ensure clean slate
+    avatarContainer.innerHTML = '';
+
+    if (this.isAzureAvatarActive) {
+        if (!this.azureRegion || !this.azureKey) {
+            console.warn("Azure Avatar properties missing");
+            // Fallback or alert? Just return for now or show error visually
+            avatarContainer.innerHTML = '<div style="color:red; padding:20px;">Please configure Azure Region and Key in Settings > Avatar</div>';
+            return;
+        }
+
+        const video = document.createElement("video");
+        video.style.width = "100%";
+        video.style.height = "100%";
+        video.style.objectFit = "cover";
+        // video.autoplay = true; // Handled by simple-peer usually, but good to have
+        // video.playsInline = true;
+        avatarContainer.appendChild(video);
+
+        this.azureAvatar = new AzureAvatar(video);
+        try {
+            await this.azureAvatar.connect(
+                this.azureRegion, 
+                this.azureKey, 
+                this.azureAvatarConfig.character, 
+                this.azureAvatarConfig.style
+            );
+            // After connecting, maybe trigger a greeting?
+            // The greeting logic below sends a request to backend, which returns audio. 
+            // Azure Avatar does NOT play audio buffers from backend easily (it speaks text via Azure TTS).
+            // So we should just ask it to speak text.
+            await this.azureAvatar.speak("Hello! I am ready to chat.");
+        } catch (e) {
+            console.error("Failed to initialize Azure Avatar", e);
+            avatarContainer.innerHTML = `<div style="color:red; padding:20px;">Connection Failed: ${e.message}</div>`;
+        }
+        return;
     }
 
     try {
@@ -618,6 +679,10 @@ export class ChatInterface extends LitElement {
   }
 
   _stopSpeaking() {
+    if (this.azureAvatar && this.azureAvatar.isSpeaking) {
+        this.azureAvatar.stopSpeaking();
+        // continue to clean up other audio sources just in case
+    }
     if (typeof window === "undefined" || !window.speechSynthesis) return;
     if (this.bargeInTimer) { clearTimeout(this.bargeInTimer); this.bargeInTimer = null; }
     if (this.currentAudio) { this.currentAudio.pause(); this.currentAudio = null; }
@@ -662,7 +727,24 @@ export class ChatInterface extends LitElement {
     }
   }
 
-  _speakResponse(text) {
+  async _speakResponse(text) {
+    if (this.isAzureAvatarActive && this.azureAvatar && this.azureAvatar.isConnected) {
+        this._stopSpeaking();
+        this.isSpeaking = true;
+        this.requestUpdate();
+        
+        try {
+            await this.azureAvatar.speak(text);
+        } catch (e) {
+            console.error("Azure Avatar speak error", e);
+        } finally {
+            this.isSpeaking = false;
+            this.requestUpdate();
+            if (this.talkModeActive) this._startListening();
+        }
+        return;
+    }
+
     if (typeof window === "undefined" || !window.speechSynthesis) return;
     this._stopSpeaking();
     const utterance = new SpeechSynthesisUtterance(text);
@@ -868,6 +950,48 @@ export class ChatInterface extends LitElement {
           `)}
         </select>
         <p class="voice-description">Select the voice model for your AI companion.</p>
+      </div>
+
+      <h4 style="margin-top: 24px; margin-bottom: 10px; color: var(--primary-color);">Azure Avatar (Experimental)</h4>
+      <div class="azure-avatar-config" style="padding: 10px; background: rgba(0,0,0,0.05); border-radius: 8px;">
+        <label class="checkbox-container" style="display: flex; align-items: center; margin-bottom: 10px; cursor: pointer;">
+          <input type="checkbox" ?checked=${this.isAzureAvatarActive} @change=${(e) => {
+            this.isAzureAvatarActive = e.target.checked;
+            this.requestUpdate();
+            // Trigger connection/disconnection logic? Maybe leave that to explicit connect call or user action
+          }} style="margin-right: 8px;" />
+          <span style="font-weight: 500;">Enable Azure AI Avatar</span>
+        </label>
+        
+        ${this.isAzureAvatarActive ? html`
+          <input type="text" placeholder="Azure Region (e.g., eastus)" .value=${this.azureRegion} 
+                 @input=${(e) => { this.azureRegion = e.target.value; localStorage.setItem("azureRegion", this.azureRegion); }} 
+                 style="width: 100%; margin-bottom: 8px; padding: 8px; border-radius: 4px; border: 1px solid #ccc;" />
+          <input type="password" placeholder="Azure Subscription Key" .value=${this.azureKey} 
+                 @input=${(e) => { this.azureKey = e.target.value; localStorage.setItem("azureKey", this.azureKey); }} 
+                 style="width: 100%; margin-bottom: 8px; padding: 8px; border-radius: 4px; border: 1px solid #ccc;" />
+          
+          <div style="margin-bottom: 8px;">
+            <label style="display: block; font-size: 0.8em; margin-bottom: 4px;">Character</label>
+            <select style="width: 100%; padding: 8px; border-radius: 4px;" .value=${this.azureAvatarConfig.character} 
+                    @change=${(e) => { this.azureAvatarConfig = {...this.azureAvatarConfig, character: e.target.value}; this.requestUpdate(); }}>
+              <option value="lisa">Lisa</option>
+              <option value="davis">Davis</option>
+            </select>
+          </div>
+          
+          <div>
+            <label style="display: block; font-size: 0.8em; margin-bottom: 4px;">Style</label>
+            <select style="width: 100%; padding: 8px; border-radius: 4px;" .value=${this.azureAvatarConfig.style} 
+                    @change=${(e) => { this.azureAvatarConfig = {...this.azureAvatarConfig, style: e.target.value}; this.requestUpdate(); }}>
+              <option value="casual-sitting">Casual Sitting</option>
+              <option value="graceful-standing">Graceful Standing</option>
+              <option value="serious">Serious</option>
+              <option value="cheerful">Cheerful</option>
+              <option value="technical-sitting">Technical Sitting</option>
+            </select>
+          </div>
+        ` : ""}
       </div>
 
       <div class="avatar-note">
